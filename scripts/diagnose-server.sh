@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Configuración
-SERVER_IP="18.218.252.174"
+SERVER_IP="3.137.157.34"
 SSH_KEY="cactus-key.pem"
 SSH_USER="ubuntu"
 

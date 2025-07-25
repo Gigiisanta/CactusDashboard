@@ -2,13 +2,13 @@
 
 # 🚀 CACTUS DASHBOARD - AUTOMATIZACIÓN DEVOPS
 # Script de automatización para despliegue y mantenimiento en EC2
-# Servidor: Ubuntu 22.04 (18.218.252.174)
+# Servidor: Ubuntu 22.04 (3.137.157.34)
 # Clave SSH: ~/Downloads/cactus-key.pem
 
 set -euo pipefail
 
 # Configuración
-SERVER_IP="18.218.252.174"
+SERVER_IP="3.137.157.34"
 SSH_KEY="~/Downloads/cactus-key.pem"
 SSH_USER="ubuntu"
 REPO_URL="https://github.com/Gigiisanta/CactusDashboard.git"
