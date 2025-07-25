@@ -1,0 +1,31 @@
+# Variables de configuración para Terraform
+# Copia este archivo a terraform.tfvars y personaliza los valores
+
+# Configuración básica del proyecto
+project_name = "cactus-dashboard"
+environment  = "prod"
+aws_region   = "us-east-1"  # Cambiar según tu preferencia
+
+# Configuración de la instancia EC2
+instance_type = "t3.micro"  # Free Tier eligible
+
+# Configuración de seguridad
+# IMPORTANTE: Cambiar por tu key pair existente en AWS
+key_pair_name = "my-key-pair"
+
+# IMPORTANTE: Cambiar por tu IP específica para mayor seguridad
+# Puedes obtener tu IP con: curl ifconfig.me
+allowed_ssh_cidr = ["0.0.0.0/0"]  # Ejemplo: ["123.456.789.0/32"]
+
+# Configuración de dominio (opcional)
+# Si tienes un dominio, descomenta y configura:
+# domain_name = "mi-dominio.com"
+domain_name = ""
+
+# Configuración de alertas
+# Cambiar por tu email real para recibir alertas
+alert_email = "admin@example.com"
+
+# Configuración de presupuesto
+# Límite mensual en USD para alertas de costos
+monthly_budget_limit = "10"

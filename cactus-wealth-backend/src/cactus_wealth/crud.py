@@ -9,6 +9,7 @@ from cactus_wealth.models import (
     ModelPortfolio,
     ModelPortfolioPosition,
     User,
+    UserRole,
 )
 from cactus_wealth.schemas import (
     ClientActivityCreate,
@@ -83,29 +84,61 @@ def create_user(session: Session, user_create: UserCreate) -> User:
 # ============ CLIENT CRUD OPERATIONS ============
 
 
-def get_client(session: Session, client_id: int, owner_id: int) -> Client | None:
-    """Get a specific client by ID, ensuring it belongs to the owner."""
-    statement = select(Client).where(
-        Client.id == client_id, Client.owner_id == owner_id
-    )
+def get_client(session: Session, client_id: int, owner_id: int, user_role: UserRole = None) -> Client | None:
+    """Get a specific client by ID, ensuring it belongs to the owner.
+    
+    Args:
+        session: Database session
+        client_id: ID of the client to retrieve
+        owner_id: ID of the owner/advisor
+        user_role: Role of the current user (GOD users can access any client)
+    """
+    # GOD users can access any client regardless of owner_id
+    if user_role == UserRole.GOD:
+        statement = select(Client).where(Client.id == client_id)
+    else:
+        statement = select(Client).where(
+            Client.id == client_id, Client.owner_id == owner_id
+        )
     return session.exec(statement).first()
 
 
 def get_clients_by_user(
-    session: Session, owner_id: int, skip: int = 0, limit: int = 100
+    session: Session, owner_id: int, skip: int = 0, limit: int = 100, user_role: UserRole = None
 ) -> list[Client]:
-    """Get all clients belonging to a specific user (advisor) with related data."""
-    statement = (
-        select(Client)
-        .where(Client.owner_id == owner_id)
-        .options(
-            selectinload(Client.investment_accounts),
-            selectinload(Client.insurance_policies),
-            selectinload(Client.referred_clients),
+    """Get all clients belonging to a specific user (advisor) with related data.
+    
+    Args:
+        session: Database session
+        owner_id: ID of the user/advisor
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        user_role: Role of the current user (GOD users can see all clients)
+    """
+    # GOD users can see all clients regardless of owner_id
+    if user_role == UserRole.GOD:
+        statement = (
+            select(Client)
+            .options(
+                selectinload(Client.investment_accounts),
+                selectinload(Client.insurance_policies),
+                selectinload(Client.referred_clients),
+            )
+            .offset(skip)
+            .limit(limit)
         )
-        .offset(skip)
-        .limit(limit)
-    )
+    else:
+        statement = (
+            select(Client)
+            .where(Client.owner_id == owner_id)
+            .options(
+                selectinload(Client.investment_accounts),
+                selectinload(Client.insurance_policies),
+                selectinload(Client.referred_clients),
+            )
+            .offset(skip)
+            .limit(limit)
+        )
     return list(session.exec(statement).all())
 
 
@@ -148,11 +181,11 @@ def create_client(session: Session, client: ClientCreate, owner_id: int) -> Clie
 
 
 def update_client(
-    session: Session, client_id: int, client_update: ClientUpdate, owner_id: int
+    session: Session, client_id: int, client_update: ClientUpdate, owner_id: int, user_role: UserRole = None
 ) -> Client | None:
     """Update a client, ensuring it belongs to the owner."""
     # Get the client ensuring ownership
-    db_client = get_client(session=session, client_id=client_id, owner_id=owner_id)
+    db_client = get_client(session=session, client_id=client_id, owner_id=owner_id, user_role=user_role)
     if not db_client:
         return None
 
@@ -198,10 +231,10 @@ def update_client(
     return db_client
 
 
-def remove_client(session: Session, client_id: int, owner_id: int) -> Client | None:
+def remove_client(session: Session, client_id: int, owner_id: int, user_role: UserRole = None) -> Client | None:
     """Remove a client, ensuring it belongs to the owner."""
     # Get the client ensuring ownership
-    db_client = get_client(session=session, client_id=client_id, owner_id=owner_id)
+    db_client = get_client(session=session, client_id=client_id, owner_id=owner_id, user_role=user_role)
     if not db_client:
         return None
 

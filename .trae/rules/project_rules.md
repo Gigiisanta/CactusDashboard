@@ -1,0 +1,1 @@
+el archivo @cactus.sh contiene comandos para manejar toda la app

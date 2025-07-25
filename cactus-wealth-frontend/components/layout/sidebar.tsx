@@ -15,7 +15,6 @@ import {
   ChevronRight,
   TrendingUp,
   PieChart,
-  Zap,
   Loader2,
 } from 'lucide-react';
 import DashboardRecentActivity from '@/app/dashboard/components/DashboardRecentActivity';
@@ -46,11 +45,6 @@ const navigationItems = [
     href: '/dashboard/analytics',
     label: 'Analytics',
     icon: BarChart3,
-  },
-  {
-    href: '/automations',
-    label: 'Automations',
-    icon: Zap,
   },
 ];
 
@@ -168,28 +162,6 @@ export function Sidebar({ className }: SidebarProps) {
               </Button>
             </div>
           )}
-
-          {/* Demo Section */}
-          <div className='border-t border-gray-100 pt-2'>
-            {/* 🚀 LIVE-OPS Demo Link */}
-            <Link href='/dashboard/live-ops-demo' className='mb-2 block'>
-              <Button
-                variant='ghost'
-                className={cn(
-                  'w-full transition-all duration-200',
-                  isCollapsed ? 'justify-center px-2' : 'justify-start',
-                  pathname === '/dashboard/live-ops-demo' &&
-                    'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                )}
-                title={isCollapsed ? '🚀 Live-Ops Demo' : undefined}
-              >
-                <Zap className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
-                {!isCollapsed && (
-                  <span className='truncate'>🚀 Live-Ops Demo</span>
-                )}
-              </Button>
-            </Link>
-          </div>
 
           {/* External Links Section */}
           <div className='border-t border-gray-100 pt-2'>

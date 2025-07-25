@@ -30,15 +30,59 @@ A comprehensive wealth management platform with advanced CRM integration, real-t
 
 ## 🚀 Quick Start with Integrated CRM
 
+### Prerequisites
+- Docker and Docker Compose installed
+- Python 3.11+ (for local development)
+- Node.js 18+ (for local development)
+- PostgreSQL (or use Docker)
+
+### 🌩️ AWS Free Tier Deployment (Recommended)
+
+**Option 1: Automated with Terraform (5 minutes)**
+```bash
+# 1. Configure AWS credentials
+aws configure
+
+# 2. Deploy with Terraform
+cd terraform/
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your settings
+terraform init
+terraform apply
+
+# 3. Access your application
+# URLs will be shown in terraform output
+```
+
+**Option 2: Manual AWS Setup**
+```bash
+# 1. Launch EC2 instance (t3.micro)
+# 2. Run quick setup script
+curl -sSL https://raw.githubusercontent.com/tu-usuario/CactusDashboard/main/scripts/quick-setup-aws.sh | bash
+```
+
+**Option 3: Step-by-step AWS Guide**
+See [AWS Deployment Guide](README_DEPLOY_AWS.md) for detailed instructions.
+
+### 💻 Local Development Setup
+
 ```bash
 # 1. Clone and setup
 git clone <your-repo>
 cd CactusDashboard
 
-# 2. Start all services (Cactus + Twenty + SyncBridge + n8n)
+# 2. Environment Setup
+cp .env.example .env
+cp cactus-wealth-backend/.env.example cactus-wealth-backend/.env
+cp cactus-wealth-frontend/.env.example cactus-wealth-frontend/.env
+
+# Edit environment variables as needed
+nano .env
+
+# 3. Start all services (Cactus + Twenty + SyncBridge + n8n)
 ./start.sh
 
-# 3. Access the platforms
+# 4. Access the platforms
 # - Cactus CRM: http://localhost:3000
 # - Twenty CRM: http://localhost:3001
 # - SyncBridge API: http://localhost:8001
@@ -244,4 +288,4 @@ MIT License - see LICENSE file for details
 
 ---
 
-**🌵 Growing Your Financial Future with Integrated CRM Excellence** 
+**🌵 Growing Your Financial Future with Integrated CRM Excellence**

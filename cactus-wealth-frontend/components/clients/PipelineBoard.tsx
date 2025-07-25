@@ -176,6 +176,9 @@ export function PipelineBoard({
       });
       toast.success('Cliente movido exitosamente');
       onClientUpdated?.(draggedClient.id, destination.droppableId as ClientStatus);
+      
+      // Refresh the pipeline to ensure real-time sync
+      await loadClients();
     } catch (error) {
       // Revert optimistic update
       setColumns(columns);

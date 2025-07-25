@@ -322,7 +322,7 @@ export function LiveOpsDemo() {
           {demoLogs.length === 0 ? (
             <p className='text-gray-500'>No hay logs disponibles...</p>
           ) : (
-            demoLogs.map((log, index) => (
+            demoLogs.map((log: any, index: number) => (
               <div key={index} className='mb-1'>
                 {log}
               </div>
@@ -359,7 +359,7 @@ export function LiveOpsDemo() {
           </div>
         ) : (
           <div className='max-h-64 space-y-2 overflow-y-auto'>
-            {notifications.map((notification) => (
+            {notifications.map((notification: any) => (
               <div
                 key={notification.id}
                 onClick={() => markAsRead(notification.id)}

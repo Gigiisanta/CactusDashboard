@@ -22,7 +22,10 @@ oauth2_scheme = OAuth2PasswordBearer(
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against a hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:  # FIX: Catch passlib UnknownHashError and other exceptions
+        return False  # FIX: Return False if hash cannot be identified
 
 
 def get_password_hash(password: str) -> str:

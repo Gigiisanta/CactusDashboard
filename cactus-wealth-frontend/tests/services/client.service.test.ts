@@ -115,6 +115,9 @@ describe('ClientService', () => {
         id: 3,
         ...clientData,
         status: ClientStatus.ACTIVE_INSURED,
+        owner_id: 1,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
       };
 
       mockApiClient.createClient.mockResolvedValueOnce(mockResponse);
@@ -130,8 +133,8 @@ describe('ClientService', () => {
       mockApiClient.createClient.mockRejectedValueOnce(error);
 
       const clientData = {
-        first_name: 'Test Client',
-        last_name: 'Test',
+        first_name: 'Test',
+        last_name: 'Client',
         email: 'invalid-email',
         risk_profile: RiskProfile.MEDIUM,
       };
@@ -166,7 +169,10 @@ describe('ClientService', () => {
         updated_at: '2024-01-02T00:00:00Z',
       };
       mockApiClient.updateClient.mockResolvedValueOnce(updatedClient);
+
       const result = await ClientService.updateClient(1, clientUpdateData);
+
+      expect(mockApiClient.updateClient).toHaveBeenCalledWith(1, clientUpdateData);
       expect(result).toEqual(updatedClient);
     });
 
@@ -175,10 +181,10 @@ describe('ClientService', () => {
       mockApiClient.updateClient.mockRejectedValueOnce(error);
 
       const clientData = {
-        first_name: 'Updated Client',
-        last_name: 'Updated',
-        email: 'updated@example.com',
-        risk_profile: RiskProfile.LOW,
+        first_name: 'Updated',
+        last_name: 'Client',
+        phone: '+1234567890',
+        risk_profile: RiskProfile.HIGH,
       };
 
       await expect(ClientService.updateClient(999, clientData)).rejects.toThrow(

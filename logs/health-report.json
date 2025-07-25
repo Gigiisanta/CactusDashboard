@@ -1,0 +1,12 @@
+{
+    "timestamp": "2025-07-22T15:53:08Z",
+    "health_score": 100,
+    "status": "healthy",
+    "issues": [],
+    "services": {
+        "backend": true,
+        "frontend": true,
+        "postgresql": true,
+        "redis": true
+    }
+}

@@ -106,6 +106,7 @@ export interface Client {
   live_notes?: string;
   portfolio_name?: string;
   referred_by_client_id?: number;
+  savings_capacity?: number;
   owner_id: number;
   created_at: string;
   updated_at: string;
@@ -140,6 +141,7 @@ export interface ClientUpdate {
   live_notes?: string;
   portfolio_name?: string;
   referred_by_client_id?: number;
+  savings_capacity?: number;
 }
 
 // Portfolio types

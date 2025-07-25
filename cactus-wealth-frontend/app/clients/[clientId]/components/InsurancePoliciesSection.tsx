@@ -128,10 +128,7 @@ export function InsurancePoliciesSection({
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
+    return `$${amount.toLocaleString()}`;
   };
 
   const totalCoverage = policies.reduce(

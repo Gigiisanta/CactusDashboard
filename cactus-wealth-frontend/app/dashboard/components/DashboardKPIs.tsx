@@ -73,6 +73,13 @@ export default React.memo(function DashboardKPIs() {
 
     return [
       {
+        title: 'AUM Total',
+        value: `$${(dashboardData?.assets_under_management ?? 0).toLocaleString()}`,
+        icon: DollarSign,
+        color: 'bg-green-600',
+        description: 'Assets under management',
+      },
+      {
         title: 'Total Clients',
         value: (dashboardData?.total_clients ?? 0).toString(),
         icon: Users,
@@ -128,7 +135,7 @@ export default React.memo(function DashboardKPIs() {
   }
 
   return (
-    <div className='grid grid-cols-1 gap-6 md:grid-cols-3 lg:grid-cols-3'>
+    <div className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4'>
       {kpis.map((kpi) => (
         <Card key={kpi.title} className='card-hover'>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>

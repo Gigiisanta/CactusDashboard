@@ -15,8 +15,8 @@ import {
 import Link from 'next/link';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('demo');
-  const [password, setPassword] = useState('demo123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | Error | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
@@ -107,12 +107,6 @@ export default function LoginPage() {
             </div>
           </CardContent>
         </Card>
-
-        <div className='mt-6 text-center text-sm text-sage-600'>
-          <p>Demo Credentials:</p>
-          <p>Username: demo</p>
-          <p>Password: demo123</p>
-        </div>
       </div>
     </div>
   );

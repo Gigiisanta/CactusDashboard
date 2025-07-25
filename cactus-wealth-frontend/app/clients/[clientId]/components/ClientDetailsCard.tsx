@@ -35,10 +35,12 @@ import {
   Check,
   X,
   Loader2,
+  Sprout,
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { AddInvestmentAccountDialog } from './AddInvestmentAccountDialog';
 import { AddInsurancePolicyDialog } from './AddInsurancePolicyDialog';
+import { EditSavingsCapacityDialog } from './EditSavingsCapacityDialog';
 import { ClientService } from '@/services/client.service';
 import { PortfolioService } from '@/services/portfolio.service';
 import { toast } from 'sonner';
@@ -168,6 +170,7 @@ export function ClientDetailsCard({
 }: ClientDetailsCardProps & { clientService?: typeof ClientService }) {
   const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
   const [isAddPolicyModalOpen, setIsAddPolicyModalOpen] = useState(false);
+  const [isEditSavingsModalOpen, setIsEditSavingsModalOpen] = useState(false);
   const [availablePortfolios, setAvailablePortfolios] = useState<
     ModelPortfolio[]
   >([]);
@@ -187,7 +190,7 @@ export function ClientDetailsCard({
   });
 
   const totalAUM = (client.investment_accounts || []).reduce(
-    (sum, acc) => sum + acc.aum,
+    (sum, account) => sum + (account.aum || 0),
     0
   );
   const totalInsurance = (client.insurance_policies || []).reduce(
@@ -201,6 +204,9 @@ export function ClientDetailsCard({
   const totalProducts =
     (client.investment_accounts?.length || 0) +
     (client.insurance_policies?.length || 0);
+
+  // Capacidad de ahorro del cliente (campo editable)
+  const savingsCapacity = client.savings_capacity || 0;
 
   // Verificar información incompleta
   const missingInfo = [];
@@ -331,6 +337,18 @@ export function ClientDetailsCard({
       setIsAddPolicyModalOpen(false);
     } catch (error) {
       console.error('Error refreshing data after adding policy:', error);
+    }
+  };
+
+  const handleUpdateSavingsCapacity = async (capacity: number) => {
+    try {
+      const updatedClient = await ClientService.updateClient(client.id, {
+        savings_capacity: capacity,
+      });
+      onClientUpdate(updatedClient);
+      onDataChange();
+    } catch (error) {
+      console.error('Error updating savings capacity:', error);
     }
   };
 
@@ -689,7 +707,7 @@ export function ClientDetailsCard({
           <Separator className='my-4' />
 
           {/* Métricas financieras con botones */}
-          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3'>
+          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4'>
             {/* AUM Total Card */}
             <div className='flex min-h-[120px] flex-col rounded-lg border border-green-200 bg-green-50 p-4'>
               <div className='mb-3 flex items-start justify-between'>
@@ -712,7 +730,7 @@ export function ClientDetailsCard({
               </div>
               <div className='flex flex-1 flex-col justify-center'>
                 <p className='text-2xl font-bold leading-none text-green-900'>
-                  {formatCurrency(totalAUM)}
+                  ${totalAUM.toLocaleString()}
                 </p>
                 <p className='mt-2 text-xs text-green-700'>
                   {(client.investment_accounts || []).length}{' '}
@@ -745,20 +763,20 @@ export function ClientDetailsCard({
               </div>
               <div className='flex flex-1 flex-col justify-center'>
                 <p className='text-2xl font-bold leading-none text-blue-900'>
-                  {formatCurrency(totalInsurance)}
+                  ${totalInsurance.toLocaleString()}
                 </p>
                 <p className='mt-2 text-xs text-blue-700'>
                   {(client.insurance_policies || []).length}{' '}
                   {(client.insurance_policies || []).length === 1
                     ? 'Póliza'
                     : 'Pólizas'}{' '}
-                  • Primas: {formatCurrency(totalPremiums)}
+                  • Primas: ${totalPremiums.toLocaleString()}
                 </p>
               </div>
             </div>
 
             {/* Productos Activos Card */}
-            <div className='flex min-h-[120px] flex-col rounded-lg border border-slate-200 bg-slate-50 p-4 sm:col-span-2 lg:col-span-1'>
+            <div className='flex min-h-[120px] flex-col rounded-lg border border-slate-200 bg-slate-50 p-4'>
               <div className='mb-3 flex items-center gap-2'>
                 <Briefcase className='h-4 w-4 flex-shrink-0 text-slate-600' />
                 <p className='text-xs font-medium uppercase leading-tight tracking-wide text-slate-700'>
@@ -778,6 +796,36 @@ export function ClientDetailsCard({
                   {(client.insurance_policies || []).length === 1
                     ? 'Póliza'
                     : 'Pólizas'}
+                </p>
+              </div>
+            </div>
+
+            {/* Capacidad de Ahorro Card */}
+            <div className='flex min-h-[120px] flex-col rounded-lg border border-green-200 bg-green-50 p-4'>
+              <div className='mb-3 flex items-start justify-between'>
+                <div className='flex flex-1 items-center gap-2'>
+                  <Sprout className='h-4 w-4 flex-shrink-0 text-green-600' />
+                  <p className='text-xs font-medium uppercase leading-tight tracking-wide text-green-700'>
+                    Capacidad de Ahorro
+                  </p>
+                </div>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setIsEditSavingsModalOpen(true)}
+                  className='ml-2 h-8 flex-shrink-0 border-green-300 px-3 text-xs text-green-700 hover:bg-green-100'
+                >
+                  <Plus className='mr-1 h-3 w-3' />
+                  <span className='hidden sm:inline'>Editar</span>
+                  <span className='sm:hidden'>+</span>
+                </Button>
+              </div>
+              <div className='flex flex-1 flex-col justify-center'>
+                <p className='text-2xl font-bold leading-none text-green-900'>
+                  ${savingsCapacity.toLocaleString()}
+                </p>
+                <p className='mt-2 text-xs text-green-700'>
+                  Capacidad mensual
                 </p>
               </div>
             </div>
@@ -812,68 +860,37 @@ export function ClientDetailsCard({
                   <h4 className='text-sm font-medium text-gray-900'>
                     Acciones Rápidas
                   </h4>
-                </div>
+                  <div className='flex items-center gap-2'>
+                    {client.phone && (
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        className='h-10 border-green-200 text-green-700 hover:bg-green-50'
+                        onClick={() =>
+                          window.open(
+                            `https://wa.me/${client.phone?.replace(/\D/g, '') || ''}`,
+                            '_blank'
+                          )
+                        }
+                      >
+                        <MessageCircle className='mr-2 h-4 w-4 flex-shrink-0' />
+                        <span className='truncate'>WhatsApp</span>
+                      </Button>
+                    )}
 
-                <div className='grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3'>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    className='h-10 justify-start border-green-200 text-green-700 hover:bg-green-50'
-                    onClick={() =>
-                      window.open(`mailto:${client.email}`, '_blank')
-                    }
-                  >
-                    <Mail className='mr-2 h-4 w-4 flex-shrink-0' />
-                    <span className='truncate'>Email</span>
-                  </Button>
-
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    className='h-10 justify-start border-blue-200 text-blue-700 hover:bg-blue-50'
-                    onClick={() => {
-                      const clientName = `${client.first_name} ${client.last_name}`;
-                      const calendarUrl = new URL(
-                        'https://calendar.google.com/calendar/render'
-                      );
-                      calendarUrl.searchParams.set('action', 'TEMPLATE');
-                      calendarUrl.searchParams.set(
-                        'text',
-                        `Reunión con ${clientName}`
-                      );
-                      calendarUrl.searchParams.set(
-                        'details',
-                        `Reunión con cliente: ${clientName}\nEmail: ${client.email}${client.phone ? `\nTeléfono: ${client.phone}` : ''}`
-                      );
-                      calendarUrl.searchParams.set('add', client.email);
-                      calendarUrl.searchParams.set('dates', '');
-                      calendarUrl.searchParams.set(
-                        'ctz',
-                        'America/Mexico_City'
-                      );
-                      window.open(calendarUrl.toString(), '_blank');
-                    }}
-                  >
-                    <Calendar className='mr-2 h-4 w-4 flex-shrink-0' />
-                    <span className='truncate'>Reunión</span>
-                  </Button>
-
-                  {client.phone && (
                     <Button
                       variant='outline'
                       size='sm'
-                      className='h-10 justify-start border-green-200 text-green-700 hover:bg-green-50'
-                      onClick={() =>
-                        window.open(
-                          `https://wa.me/${client.phone?.replace(/\D/g, '') || ''}`,
-                          '_blank'
-                        )
-                      }
+                      className='h-10 border-blue-200 text-blue-700 hover:bg-blue-50'
+                      onClick={() => {
+                        // Aquí se podría abrir un modal con información detallada del cliente
+                        console.log('Abrir información del cliente');
+                      }}
                     >
-                      <MessageCircle className='mr-2 h-4 w-4 flex-shrink-0' />
-                      <span className='truncate'>WhatsApp</span>
+                      <ExternalLink className='mr-2 h-4 w-4 flex-shrink-0' />
+                      <span className='truncate'>Ver Info</span>
                     </Button>
-                  )}
+                  </div>
                 </div>
               </div>
             </>
@@ -902,6 +919,13 @@ export function ClientDetailsCard({
         open={isAddPolicyModalOpen}
         onOpenChange={setIsAddPolicyModalOpen}
         onSubmit={handleAddPolicy}
+      />
+
+      <EditSavingsCapacityDialog
+        open={isEditSavingsModalOpen}
+        onOpenChange={setIsEditSavingsModalOpen}
+        currentCapacity={savingsCapacity}
+        onSubmit={handleUpdateSavingsCapacity}
       />
     </>
   );

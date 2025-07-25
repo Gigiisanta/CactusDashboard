@@ -37,7 +37,7 @@ def admin_user_fixture(session: Session):
     user = User(
         email="admin@test.com",
         username="admin",
-        hashed_password="hashed_password",
+        hashed_password="$2b$12$C6UzMDM.H6dfI/f/IKcEeO5r1r5Q9Q6v1u1Zl8b5Q9Q6v1u1Zl8b5",
         role=UserRole.ADMIN,
         is_active=True,
     )
@@ -53,7 +53,7 @@ def advisor_user_fixture(session: Session):
     user = User(
         email="advisor@test.com",
         username="advisor",
-        hashed_password="hashed_password",
+        hashed_password="$2b$12$C6UzMDM.H6dfI/f/IKcEeO5r1r5Q9Q6v1u1Zl8b5Q9Q6v1u1Zl8b5",
         role=UserRole.SENIOR_ADVISOR,
         is_active=True,
     )

@@ -1,0 +1,32 @@
+# Frontend Token Optimization Rules
+
+## Global Inheritance
+- Heredar todas las reglas de optimización de tokens del proyecto global
+- Output mínimo: solo código React/Next.js funcional sin explicaciones
+
+## Next.js/React Specific Efficiency
+- Server Components por defecto
+- Componentes máximo 100 líneas
+- shadcn/ui exclusivamente para UI base
+- TailwindCSS sin custom CSS
+- TypeScript strict mode
+- Hooks nativos antes que librerías externas
+
+## Code Output Format
+- Implementación directa sin comentarios redundantes
+- Imports optimizados y ordenados
+- Props interfaces explícitas
+- Error boundaries y loading states
+- Integración automática con estructura app/
+
+## State Management Hierarchy
+- Server Components + Server Actions (mutaciones)
+- React hooks nativos (useState, useContext)
+- TanStack Query (server state complejo)
+- Zustand (estado global cliente complejo)
+
+## Quality Standards
+- No usar `any`, preferir `unknown` con type guards
+- Abstracción API via lib/api.ts
+- Testing con Jest + React Testing Library
+- E2E con Playwright para flujos críticos 

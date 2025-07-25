@@ -12,7 +12,7 @@ jest.mock('@/lib/api', () => ({
 const mockUseDashboardActions = {
   isGeneratingReport: false,
   isDialogOpen: false,
-  error: null,
+  error: null as string | null,
   clientsLoading: false,
   clients: [],
   selectedClientId: '',
@@ -34,7 +34,7 @@ describe('DashboardActions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset mock state
-    mockUseDashboardActions.error = null;
+    mockUseDashboardActions.error = null as string | null;
     mockUseDashboardActions.clients = [];
     mockUseDashboardActions.clientsLoading = false;
   });

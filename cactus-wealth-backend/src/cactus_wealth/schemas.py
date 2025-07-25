@@ -36,6 +36,7 @@ class ClientCreate(BaseModel):
     live_notes: str | None = None
     portfolio_name: str | None = None
     referred_by_client_id: int | None = None
+    savings_capacity: float | None = None
 
 
 class ClientUpdate(BaseModel):
@@ -52,6 +53,7 @@ class ClientUpdate(BaseModel):
     live_notes: str | None = None
     portfolio_name: str | None = None
     referred_by_client_id: int | None = None
+    savings_capacity: float | None = None
 
 
 class ClientRead(BaseModel):
@@ -69,6 +71,7 @@ class ClientRead(BaseModel):
     live_notes: str | None
     portfolio_name: str | None
     referred_by_client_id: int | None
+    savings_capacity: float | None
     owner_id: int
     created_at: datetime
     updated_at: datetime
@@ -429,6 +432,7 @@ class ModelPortfolioPositionCreate(BaseModel):
         @classmethod
         def __get_validators__(cls) -> 'Generator[Callable[..., Any], None, None]':
             yield cls.validate_weight
+
         @classmethod
         def validate_weight(cls, v: Any) -> Any:
             if hasattr(v, "weight") and (v.weight < 0 or v.weight > 1):
@@ -445,6 +449,7 @@ class ModelPortfolioPositionUpdate(BaseModel):
         @classmethod
         def __get_validators__(cls) -> 'Generator[Callable[..., Any], None, None]':
             yield cls.validate_weight
+
         @classmethod
         def validate_weight(cls, v: Any) -> Any:
             if (

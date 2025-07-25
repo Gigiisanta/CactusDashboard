@@ -181,7 +181,7 @@ Algunos puntos útiles a cubrir:
 • Seguimiento necesario
 • Observaciones personales'
             className='flex-1 resize-none font-mono text-sm'
-            style={{ minHeight: '400px' }}
+            style={{ minHeight: '200px' }}
           />
 
           <div className='flex items-center justify-between text-sm text-gray-500'>

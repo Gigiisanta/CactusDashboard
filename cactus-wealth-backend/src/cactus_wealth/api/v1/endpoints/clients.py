@@ -59,9 +59,10 @@ def read_clients(
 ) -> list[ClientReadWithDetails]:
     """
     Get all clients belonging to the authenticated advisor with full details.
+    GOD users can see all clients regardless of ownership.
     """
     clients = crud.get_clients_by_user(
-        session=session, owner_id=current_user.id, skip=skip, limit=limit
+        session=session, owner_id=current_user.id, skip=skip, limit=limit, user_role=current_user.role
     )
     return [ClientReadWithDetails.model_validate(client) for client in clients]
 
@@ -76,7 +77,7 @@ def read_client(
     Get a specific client by ID with full details (only if owned by the authenticated advisor).
     """
     client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id
+        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
@@ -101,6 +102,7 @@ def update_client(
             client_id=client_id,
             client_update=client_update,
             owner_id=current_user.id,
+            user_role=current_user.role,
         )
         if client is None:
             raise HTTPException(
@@ -121,7 +123,7 @@ def delete_client(
     Delete a client (only if owned by the authenticated advisor).
     """
     client = crud.remove_client(
-        session=session, client_id=client_id, owner_id=current_user.id
+        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
@@ -146,7 +148,7 @@ def get_client_activities(
     """
     # Verify client ownership
     client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id
+        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
@@ -175,7 +177,7 @@ def create_client_activity(
     """
     # Verify client ownership
     client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id
+        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
@@ -201,7 +203,7 @@ def get_client_notes(
     current_user: User = Depends(get_current_user),
 ) -> list[ClientNoteRead]:
     client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id
+        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
@@ -223,7 +225,7 @@ def create_client_note(
     current_user: User = Depends(get_current_user),
 ) -> ClientNoteRead:
     client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id
+        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
@@ -245,7 +247,7 @@ def update_client_note(
     current_user: User = Depends(get_current_user),
 ) -> ClientNoteRead:
     client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id
+        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
@@ -270,7 +272,7 @@ def delete_client_note(
     current_user: User = Depends(get_current_user),
 ):
     client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id
+        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(

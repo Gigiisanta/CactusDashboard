@@ -1,5 +1,11 @@
 import { useState, useCallback } from 'react';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/hooks/useWebSocket';
+
+interface DemoLog {
+  id: string;
+  message: string;
+  timestamp: Date;
+}
 
 export function useLiveOpsDemo() {
   const {
@@ -17,32 +23,24 @@ export function useLiveOpsDemo() {
 
   const [customMessage, setCustomMessage] = useState('');
   const [isCreatingNotification, setIsCreatingNotification] = useState(false);
-  const [demoLogs, setDemoLogs] = useState<string[]>([]);
+  const [demoLogs, setDemoLogs] = useState<DemoLog[]>([]);
 
   const addLog = useCallback((message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setDemoLogs((prev) => [`[${timestamp}] ${message}`, ...prev.slice(0, 9)]);
+    const newLog: DemoLog = {
+      id: Date.now().toString(),
+      message,
+      timestamp: new Date(),
+    };
+    setDemoLogs(prev => [newLog, ...prev].slice(0, 50)); // Keep only last 50 logs
   }, []);
 
-  const handleToggleConnection = useCallback(
-    async (token?: string) => {
-      if (isConnected) {
-        addLog('🔄 Desconectando WebSocket...');
-        disconnect();
-      } else {
-        if (token) {
-          addLog('🔄 Conectando WebSocket...');
-          const success = await connect(token);
-          if (!success) {
-            addLog('❌ Error al conectar WebSocket');
-          }
-        } else {
-          addLog('❌ No hay token disponible');
-        }
-      }
-    },
-    [isConnected, connect, disconnect, addLog]
-  );
+  const handleToggleConnection = useCallback((token?: string) => {
+    if (isConnected) {
+      disconnect();
+    } else if (token) {
+      connect(token);
+    }
+  }, [isConnected, connect, disconnect]);
 
   return {
     isConnected,

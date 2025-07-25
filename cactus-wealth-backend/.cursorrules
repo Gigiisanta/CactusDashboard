@@ -1,0 +1,25 @@
+# Backend Token Optimization Rules
+
+## Global Inheritance
+- Heredar todas las reglas de optimización de tokens del proyecto global
+- Output mínimo: solo código FastAPI funcional sin explicaciones
+
+## FastAPI Specific Efficiency
+- Endpoints: solo routing + validación HTTP
+- Services: lógica de negocio pura
+- CRUD: operaciones de base de datos exclusivamente
+- Schemas: validación Pydantic concisa
+- Async/await obligatorio para I/O
+- Dependency injection con Depends()
+
+## Code Output Format
+- Implementación directa sin comentarios redundantes
+- Imports optimizados, sin unused
+- Type hints completos
+- Tests asociados cuando aplique
+- Integración automática con estructura existente
+
+## Quality Standards
+- SQLModel + Pydantic exclusivamente
+- Manejo de errores con DetailedHTTPException
+- Siguiendo structure patterns de CactusDashboard.md 

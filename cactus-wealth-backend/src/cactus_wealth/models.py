@@ -14,6 +14,7 @@ from sqlmodel import Field, Relationship, SQLModel
 class UserRole(str, enum.Enum):
     """User roles in the system."""
 
+    GOD = "GOD"  # Super administrator with all permissions
     ADMIN = "ADMIN"
     SENIOR_ADVISOR = "SENIOR_ADVISOR"
     JUNIOR_ADVISOR = "JUNIOR_ADVISOR"
@@ -133,6 +134,7 @@ class Client(SQLModel, table=True):
     live_notes: Optional[str] = Field(default=None, max_length=10000)
     portfolio_name: Optional[str] = Field(default=None, max_length=100)
     referred_by_client_id: Optional[int] = Field(default=None, foreign_key="clients.id")
+    savings_capacity: Optional[float] = Field(default=None)
 
     created_at: datetime = Field(
         default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False)
