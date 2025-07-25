@@ -1,214 +1,284 @@
 'use client';
 
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { useState, useEffect } from 'react';
+import { Shield, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface AddInsurancePolicyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: {
+  onSubmit: (policyData: {
     policy_number: string;
     insurance_type: string;
     premium_amount: number;
     coverage_amount: number;
-  }) => void;
+  }) => Promise<void>;
 }
+
+interface FormData {
+  policy_number: string;
+  insurance_type: string;
+  premium_amount: string;
+  coverage_amount: string;
+}
+
+const INSURANCE_TYPES = [
+  'Seguro de Vida',
+  'Seguro de Retiro',
+  'Seguro de Salud',
+  'Seguro de Invalidez',
+  'Seguro de Accidentes',
+  'Seguro de Responsabilidad Civil',
+  'Otro',
+];
 
 export function AddInsurancePolicyDialog({
   open,
   onOpenChange,
   onSubmit,
 }: AddInsurancePolicyDialogProps) {
-  const [formData, setFormData] = useState({
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState<FormData>({
     policy_number: '',
     insurance_type: '',
-    premium_amount: 0,
-    coverage_amount: 0,
+    premium_amount: '0',
+    coverage_amount: '0',
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
+    {}
+  );
+
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setFormData({
+        policy_number: '',
+        insurance_type: '',
+        premium_amount: '0',
+        coverage_amount: '0',
+      });
+      setErrors({});
+    }
+  }, [open]);
+
+  const validateForm = (): boolean => {
+    const newErrors: Partial<Record<keyof FormData, string>> = {};
+
+    if (!formData.policy_number.trim()) {
+      newErrors.policy_number = 'El número de póliza es obligatorio';
+    }
+
+    if (!formData.insurance_type.trim()) {
+      newErrors.insurance_type = 'El tipo de seguro es obligatorio';
+    }
+
+    const premiumValue = parseFloat(formData.premium_amount);
+    if (isNaN(premiumValue) || premiumValue < 0) {
+      newErrors.premium_amount =
+        'La prima debe ser un número válido mayor o igual a 0';
+    }
+
+    const coverageValue = parseFloat(formData.coverage_amount);
+    if (isNaN(coverageValue) || coverageValue <= 0) {
+      newErrors.coverage_amount =
+        'La cobertura debe ser un número válido mayor a 0';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.policy_number.trim()) {
-      toast.error('El número de póliza es requerido');
+    if (!validateForm()) {
       return;
     }
 
-    if (!formData.insurance_type.trim()) {
-      toast.error('El tipo de seguro es requerido');
-      return;
-    }
-
-    if (formData.premium_amount <= 0) {
-      toast.error('La prima debe ser mayor a 0');
-      return;
-    }
-
-    if (formData.coverage_amount <= 0) {
-      toast.error('La cobertura debe ser mayor a 0');
-      return;
-    }
-
+    setIsLoading(true);
     try {
-      setIsSubmitting(true);
-
-      const submitPromise = Promise.resolve(
-        onSubmit({
-          policy_number: formData.policy_number.trim(),
-          insurance_type: formData.insurance_type.trim(),
-          premium_amount: formData.premium_amount,
-          coverage_amount: formData.coverage_amount,
-        })
-      );
-
-      toast.promise(submitPromise, {
-        loading: 'Creando póliza de seguro...',
-        success: () => {
-          // Reset form on success
-          setFormData({
-            policy_number: '',
-            insurance_type: '',
-            premium_amount: 0,
-            coverage_amount: 0,
-          });
-          return '✅ ¡Póliza de seguro creada con éxito!';
-        },
-        error: (err) => {
-          const errorMessage =
-            err instanceof Error ? err.message : 'No se pudo crear la póliza';
-          return `❌ Error: ${errorMessage}`;
-        },
+      await onSubmit({
+        policy_number: formData.policy_number,
+        insurance_type: formData.insurance_type,
+        premium_amount: parseFloat(formData.premium_amount),
+        coverage_amount: parseFloat(formData.coverage_amount),
       });
 
-      await submitPromise;
-    } catch (error) {
-      console.error('Error submitting form:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleClose = () => {
-    if (!isSubmitting) {
+      // Reset form and close dialog
       setFormData({
         policy_number: '',
         insurance_type: '',
-        premium_amount: 0,
-        coverage_amount: 0,
+        premium_amount: '0',
+        coverage_amount: '0',
       });
+      setErrors({});
       onOpenChange(false);
+    } catch (error) {
+      console.error('Error creating insurance policy:', error);
+      setErrors({
+        policy_number:
+          error instanceof Error
+            ? error.message
+            : 'Error al crear la póliza de seguro',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className='sm:max-w-[425px]'>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className='sm:max-w-[500px]'>
         <DialogHeader>
-          <DialogTitle>Añadir Póliza de Seguro</DialogTitle>
+          <DialogTitle className='flex items-center gap-2'>
+            <Shield className='h-5 w-5' />
+            Añadir Póliza de Seguro
+          </DialogTitle>
+          <DialogDescription>
+            Añade una nueva póliza de seguro para este cliente.
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className='space-y-4'>
+        <form onSubmit={handleSubmit} className='space-y-4 pt-4'>
           <div className='space-y-2'>
             <Label htmlFor='policy_number'>Número de Póliza *</Label>
             <Input
               id='policy_number'
-              placeholder='ej. POL-001-2024'
+              placeholder='Ej: POL-2024-001234'
               value={formData.policy_number}
               onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  policy_number: e.target.value,
-                }))
+                handleInputChange('policy_number', e.target.value)
               }
-              required
-              disabled={isSubmitting}
+              className={errors.policy_number ? 'border-destructive' : ''}
             />
+            {errors.policy_number && (
+              <p className='text-sm text-destructive'>{errors.policy_number}</p>
+            )}
           </div>
 
           <div className='space-y-2'>
             <Label htmlFor='insurance_type'>Tipo de Seguro *</Label>
-            <Input
-              id='insurance_type'
-              placeholder='ej. Seguro de Vida, Seguro de Retiro'
+            <Select
               value={formData.insurance_type}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  insurance_type: e.target.value,
-                }))
+              onValueChange={(value) =>
+                handleInputChange('insurance_type', value)
               }
-              required
-              disabled={isSubmitting}
-            />
+            >
+              <SelectTrigger
+                className={errors.insurance_type ? 'border-destructive' : ''}
+              >
+                <SelectValue placeholder='Selecciona el tipo de seguro' />
+              </SelectTrigger>
+              <SelectContent>
+                {INSURANCE_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.insurance_type && (
+              <p className='text-sm text-destructive'>
+                {errors.insurance_type}
+              </p>
+            )}
           </div>
 
-          <div className='space-y-2'>
-            <Label htmlFor='premium_amount'>Prima (USD) *</Label>
-            <Input
-              id='premium_amount'
-              type='number'
-              step='0.01'
-              min='0.01'
-              placeholder='0.00'
-              value={formData.premium_amount || ''}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  premium_amount: parseFloat(e.target.value) || 0,
-                }))
-              }
-              required
-              disabled={isSubmitting}
-            />
-            <p className='text-xs text-muted-foreground'>
-              Monto de la prima mensual o anual
-            </p>
+          <div className='grid grid-cols-2 gap-4'>
+            <div className='space-y-2'>
+              <Label htmlFor='premium_amount'>Prima (Mensual/Anual) *</Label>
+              <Input
+                id='premium_amount'
+                type='number'
+                placeholder='0.00'
+                step='0.01'
+                min='0'
+                value={formData.premium_amount}
+                onChange={(e) =>
+                  handleInputChange('premium_amount', e.target.value)
+                }
+                className={errors.premium_amount ? 'border-destructive' : ''}
+              />
+              {errors.premium_amount && (
+                <p className='text-sm text-destructive'>
+                  {errors.premium_amount}
+                </p>
+              )}
+            </div>
+
+            <div className='space-y-2'>
+              <Label htmlFor='coverage_amount'>Cobertura Total *</Label>
+              <Input
+                id='coverage_amount'
+                type='number'
+                placeholder='0.00'
+                step='0.01'
+                min='0'
+                value={formData.coverage_amount}
+                onChange={(e) =>
+                  handleInputChange('coverage_amount', e.target.value)
+                }
+                className={errors.coverage_amount ? 'border-destructive' : ''}
+              />
+              {errors.coverage_amount && (
+                <p className='text-sm text-destructive'>
+                  {errors.coverage_amount}
+                </p>
+              )}
+            </div>
           </div>
 
-          <div className='space-y-2'>
-            <Label htmlFor='coverage_amount'>Cobertura (USD) *</Label>
-            <Input
-              id='coverage_amount'
-              type='number'
-              step='0.01'
-              min='0.01'
-              placeholder='0.00'
-              value={formData.coverage_amount || ''}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  coverage_amount: parseFloat(e.target.value) || 0,
-                }))
-              }
-              required
-              disabled={isSubmitting}
-            />
-            <p className='text-xs text-muted-foreground'>
-              Monto total de cobertura de la póliza
-            </p>
-          </div>
+          <p className='text-xs text-muted-foreground'>
+            Valores en USD. La prima es el costo periódico y la cobertura es el
+            monto total asegurado.
+          </p>
 
-          <div className='flex justify-end space-x-2 pt-4'>
+          {/* Action Buttons */}
+          <div className='flex justify-end space-x-3 border-t pt-4'>
             <Button
               type='button'
               variant='outline'
-              onClick={handleClose}
-              disabled={isSubmitting}
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
             >
               Cancelar
             </Button>
-            <Button type='submit' disabled={isSubmitting}>
-              {isSubmitting ? 'Creando...' : 'Crear Póliza'}
+            <Button type='submit' disabled={isLoading} className='gap-2'>
+              {isLoading ? (
+                <>
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                  Creando...
+                </>
+              ) : (
+                <>
+                  <Shield className='h-4 w-4' />
+                  Crear Póliza
+                </>
+              )}
             </Button>
           </div>
         </form>
