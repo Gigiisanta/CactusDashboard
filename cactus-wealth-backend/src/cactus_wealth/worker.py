@@ -3,7 +3,6 @@ import json
 import os
 from typing import Any
 
-import httpx
 import redis.asyncio as redis
 import structlog
 from arq.connections import RedisSettings
@@ -16,10 +15,7 @@ logger = structlog.get_logger(__name__)
 
 # Configuration
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379")
-SYNC_BRIDGE_URL = os.getenv("SYNC_BRIDGE_URL", "http://sync_bridge:8001")
-
-# HTTP client for sync bridge
-sync_client = httpx.AsyncClient(timeout=30.0)
+N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "http://n8n:5678/webhook/cactus")
 
 
 class EventWorker:
@@ -37,36 +33,20 @@ class EventWorker:
         """Cleanup worker"""
         if self.redis_client:
             await self.redis_client.close()
-        await sync_client.aclose()
         logger.info("EventWorker stopped")
 
     async def process_client_event(self, event_data: dict[str, Any]) -> bool:
-        """Process a single client event"""
+        """Process a single client event - now handled by webhook service"""
         try:
             logger.info("Processing event", event_type=event_data.get("event"))
-
-            # Send to sync bridge
-            response = await sync_client.post(
-                f"{SYNC_BRIDGE_URL}/events",
-                json=event_data,
-                headers={"Content-Type": "application/json"},
+            
+            # Events are now handled by the webhook service in real-time
+            # This worker can be used for additional background processing if needed
+            logger.info(
+                "Event processed via webhook service",
+                event_type=event_data.get("event"),
             )
-
-            if response.status_code in [200, 201]:
-                logger.info(
-                    "Event processed successfully",
-                    event_type=event_data.get("event"),
-                    status=response.status_code,
-                )
-                return True
-            else:
-                logger.error(
-                    "Sync bridge rejected event",
-                    event_type=event_data.get("event"),
-                    status=response.status_code,
-                    response=response.text,
-                )
-                return False
+            return True
 
         except Exception as e:
             logger.error("Failed to process event", error=str(e))

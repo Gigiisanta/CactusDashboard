@@ -12,14 +12,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cactus_password}
       POSTGRES_DB: ${POSTGRES_DB:-cactus_db}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
-    # SEGURIDAD: Puerto NO expuesto al host - Solo accesible internamente
-    # ports:
-    #   - "5432:5432"  # ELIMINADO por seguridad
     expose:
-      - "5432"  # Solo expuesto a la red interna de Docker
+      - "5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./config/postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
     networks:
       - cactus_network
     deploy:
@@ -53,11 +49,8 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    # SEGURIDAD: Puerto NO expuesto al host - Solo accesible internamente
-    # ports:
-    #   - "6379:6379"  # ELIMINADO por seguridad
     expose:
-      - "6379"  # Solo expuesto a la red interna de Docker
+      - "6379"
     networks:
       - cactus_network
     command: >
@@ -93,15 +86,11 @@ services:
       args:
         - ENVIRONMENT=production
     restart: unless-stopped
-    # SEGURIDAD: Solo expuesto internamente, acceso via Nginx reverse proxy
     expose:
       - "8000"
-    # ports:
-    #   - "8000:8000"  # ELIMINADO - Solo accesible via Nginx
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-cactus_user}:${POSTGRES_PASSWORD:-cactus_password}@db:5432/${POSTGRES_DB:-cactus_db}
       REDIS_URL: redis://:${REDIS_PASSWORD:-cactus_redis_secure_2024}@redis:6379
-      SYNC_BRIDGE_URL: http://sync_bridge:8001
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
       PYTHONPATH: /app/src
       DISABLE_RELOAD: "true"
@@ -115,6 +104,7 @@ services:
       KEEPALIVE: 2
       MAX_REQUESTS: 1000
       MAX_REQUESTS_JITTER: 100
+      N8N_WEBHOOK_URL: http://n8n:5678/webhook/cactus
     depends_on:
       db:
         condition: service_healthy
@@ -127,7 +117,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: 320M
           cpus: '0.4'
         reservations:
           memory: 256M
@@ -151,7 +141,6 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-cactus_user}:${POSTGRES_PASSWORD:-cactus_password}@db:5432/${POSTGRES_DB:-cactus_db}
       REDIS_URL: redis://:${REDIS_PASSWORD:-cactus_redis_secure_2024}@redis:6379
-      SYNC_BRIDGE_URL: http://sync_bridge:8001
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
       PYTHONPATH: /app/src
       DISABLE_RELOAD: "true"
@@ -160,12 +149,11 @@ services:
       ENVIRONMENT: production
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       ARQ_WORKER_CONCURRENCY: 2
+      N8N_WEBHOOK_URL: http://n8n:5678/webhook/cactus
     depends_on:
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      sync_bridge:
         condition: service_healthy
     volumes:
       - ./logs:/app/logs
@@ -174,7 +162,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
+          memory: 160M
           cpus: '0.2'
         reservations:
           memory: 128M
@@ -194,11 +182,8 @@ services:
         - NODE_ENV=production
         - NEXT_TELEMETRY_DISABLED=1
     restart: unless-stopped
-    # SEGURIDAD: Solo expuesto internamente, acceso via Nginx reverse proxy
     expose:
       - "3000"
-    # ports:
-    #   - "3000:3000"  # ELIMINADO - Solo accesible via Nginx
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
@@ -213,10 +198,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 192M
           cpus: '0.3'
         reservations:
-          memory: 192M
+          memory: 128M
           cpus: '0.2'
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
@@ -225,58 +210,18 @@ services:
       retries: 3
       start_period: 60s
 
-  sync_bridge:
-    build:
-      context: ./sync-bridge
-      dockerfile: Dockerfile
-      args:
-        - ENVIRONMENT=production
-    restart: unless-stopped
-    # SEGURIDAD: Solo expuesto internamente
-    expose:
-      - "8001"
-    # ports:
-    #   - "8001:8001"  # ELIMINADO - Solo accesible internamente
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-cactus_user}:${POSTGRES_PASSWORD:-cactus_password}@db:5432/${POSTGRES_DB:-cactus_db}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-cactus_redis_secure_2024}@redis:6379
-      ENVIRONMENT: production
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./logs:/app/logs
-    networks:
-      - cactus_network
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: '0.15'
-        reservations:
-          memory: 64M
-          cpus: '0.05'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
-  # Nginx Reverse Proxy Seguro
   nginx:
     image: nginx:alpine
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
+      - "3000:3000"
+      - "8000:8000"
+      - "5678:5678"
     volumes:
-      - ./nginx-secure.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./logs/nginx:/var/log/nginx
-      - /etc/letsencrypt:/etc/letsencrypt:ro  # Para SSL certificates
     depends_on:
       - backend
       - frontend
@@ -296,7 +241,6 @@ services:
       timeout: 10s
       retries: 3
 
-  # n8n para automatización (opcional, comentar si no se usa)
   n8n:
     image: n8nio/n8n:latest
     restart: unless-stopped
@@ -314,7 +258,7 @@ services:
       N8N_METRICS: "false"
       N8N_LOG_LEVEL: "error"
       N8N_EXECUTIONS_DATA_PRUNE: "true"
-      N8N_EXECUTIONS_DATA_MAX_AGE: 168  # 7 días
+      N8N_EXECUTIONS_DATA_MAX_AGE: 168
       GENERIC_TIMEZONE: "America/Argentina/Buenos_Aires"
     volumes:
       - n8n_data:/home/node/.n8n
@@ -323,10 +267,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
+          memory: 160M
           cpus: '0.2'
         reservations:
-          memory: 128M
+          memory: 96M
           cpus: '0.1'
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5678/healthz"]
@@ -334,52 +278,13 @@ services:
       timeout: 10s
       retries: 3
 
-  # Watchtower para actualizaciones automáticas (opcional)
-  watchtower:
-    image: containrrr/watchtower:latest
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      WATCHTOWER_CLEANUP: "true"
-      WATCHTOWER_POLL_INTERVAL: 86400  # 24 horas
-      WATCHTOWER_INCLUDE_STOPPED: "true"
-      WATCHTOWER_REVIVE_STOPPED: "false"
-      WATCHTOWER_NOTIFICATIONS: "email"
-      WATCHTOWER_NOTIFICATION_EMAIL_FROM: ${WATCHTOWER_EMAIL_FROM:-noreply@your-domain.com}
-      WATCHTOWER_NOTIFICATION_EMAIL_TO: ${WATCHTOWER_EMAIL_TO:-admin@your-domain.com}
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER: ${SMTP_SERVER:-smtp.gmail.com}
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PORT: ${SMTP_PORT:-587}
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_USER: ${SMTP_USER:-}
-      WATCHTOWER_NOTIFICATION_EMAIL_SERVER_PASSWORD: ${SMTP_PASSWORD:-}
-    deploy:
-      resources:
-        limits:
-          memory: 64M
-          cpus: '0.05'
-        reservations:
-          memory: 32M
-          cpus: '0.02'
-
 volumes:
   postgres_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /opt/cactus/data/postgres
   redis_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /opt/cactus/data/redis
   n8n_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /opt/cactus/data/n8n
 
 networks:
   cactus_network:

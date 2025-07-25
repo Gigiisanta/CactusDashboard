@@ -168,14 +168,14 @@ def create_client(session: Session, client: ClientCreate, owner_id: int) -> Clie
     session.commit()
     session.refresh(db_client)
 
-    # Emit sync event asincrónicamente
+    # Send webhook for client creation
     import asyncio
-    from cactus_wealth.services import sync_service
     try:
+        from cactus_wealth.services import webhook_service
         loop = asyncio.get_running_loop()
-        loop.create_task(sync_service.client_created(db_client))
+        loop.create_task(webhook_service.client_created(db_client))
     except RuntimeError:
-        asyncio.run(sync_service.client_created(db_client))
+        asyncio.run(webhook_service.client_created(db_client))
 
     return db_client
 
@@ -219,14 +219,14 @@ def update_client(
             created_by=owner_id,
         )
 
-    # Emit sync event asincrónicamente
+    # Send webhook for client update
     import asyncio
-    from cactus_wealth.services import sync_service
     try:
+        from cactus_wealth.services import webhook_service
         loop = asyncio.get_running_loop()
-        loop.create_task(sync_service.client_updated(db_client))
+        loop.create_task(webhook_service.client_updated(db_client))
     except RuntimeError:
-        asyncio.run(sync_service.client_updated(db_client))
+        asyncio.run(webhook_service.client_updated(db_client))
 
     return db_client
 

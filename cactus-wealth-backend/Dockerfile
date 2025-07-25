@@ -1,36 +1,33 @@
 # ================================
-# 🚀 ULTRA-OPTIMIZED MULTI-STAGE BUILD
+# 🚀 ULTRA-OPTIMIZED ALPINE MULTI-STAGE BUILD
 # ================================
 
 # ---- Etapa Builder ----
-FROM python:3.12-slim as builder
+FROM python:3.12-alpine as builder
 
 WORKDIR /app
+
+# Instalar dependencias de compilación
+RUN apk add --no-cache gcc musl-dev libffi-dev postgresql-dev
 
 # Instalar solo dependencias primero para cache óptimo
 COPY pyproject.toml poetry.lock ./
 RUN pip install --no-cache-dir poetry poetry-plugin-export
-RUN poetry export -f requirements.txt --output requirements.txt --without-hashes --only=main && \
-    echo "typing_extensions>=4.12.2" >> requirements.txt
+RUN poetry export -f requirements.txt --output requirements.txt --without-hashes --only=main
 
 # ---- Etapa Final ----
-FROM python:3.12-slim
+FROM python:3.12-alpine
 
 WORKDIR /app
 
 # Instalar solo librerías esenciales para runtime
-RUN apt-get update && apt-get install -y \
-    curl \
-    libpango-1.0-0 \
-    libcairo2 \
-    libgdk-pixbuf-2.0-0 \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+RUN apk add --no-cache curl postgresql-libs && \
+    addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
 
 # Copiar requirements y solo después instalar
 COPY --from=builder /app/requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir typing_extensions>=4.12.2 anyio>=4.6.2 cffi certifi platformdirs yfinance
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar solo el código fuente necesario
 COPY ./src ./src
@@ -40,12 +37,17 @@ COPY ./entrypoint_worker.sh ./entrypoint_worker.sh
 COPY ./alembic.ini ./alembic.ini
 COPY ./alembic ./alembic
 
-RUN chmod +x ./entrypoint.sh ./entrypoint_worker.sh
+RUN chmod +x ./entrypoint.sh ./entrypoint_worker.sh && \
+    chown -R appuser:appgroup /app
 
-ENV PYTHONPATH="/app/src:$PYTHONPATH"
+USER appuser
 
-HEALTHCHECK --interval=15s --timeout=5s --start-period=3s --retries=2 \
+ENV PYTHONPATH="/app/src:$PYTHONPATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 ENTRYPOINT ["./entrypoint.sh"]
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"] 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
