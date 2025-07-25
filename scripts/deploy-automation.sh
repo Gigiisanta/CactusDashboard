@@ -99,8 +99,8 @@ initial_deploy() {
     
     # Primer despliegue con Docker Compose
     log "Desplegando con Docker Compose..."
-    ssh_exec "cd $REMOTE_APP_DIR && docker-compose -f docker-compose.prod.yml down || true"
-    ssh_exec "cd $REMOTE_APP_DIR && docker-compose -f docker-compose.prod.yml up -d --build"
+    ssh_exec "cd $REMOTE_APP_DIR && docker-compose -f docker-compose.simple.yml down || true"
+    ssh_exec "cd $REMOTE_APP_DIR && docker-compose -f docker-compose.simple.yml up -d --build"
     
     success "Despliegue inicial completado"
 }
@@ -174,23 +174,23 @@ log "Nuevos cambios detectados. Actualizando..."
 log "Actualizando código desde GitHub..."
 git reset --hard origin/main
 
-# Verificar si hay cambios en docker-compose.prod.yml
-if git diff HEAD~1 HEAD --name-only | grep -q "docker-compose.prod.yml\|Dockerfile"; then
+# Verificar si hay cambios en docker-compose.simple.yml
+if git diff HEAD~1 HEAD --name-only | grep -q "docker-compose.simple.yml\|Dockerfile"; then
     log "Cambios en Docker detectados. Rebuild completo..."
-    docker-compose -f docker-compose.prod.yml down
-    docker-compose -f docker-compose.prod.yml up -d --build
+    docker-compose -f docker-compose.simple.yml down
+    docker-compose -f docker-compose.simple.yml up -d --build
 else
     log "Sin cambios en Docker. Restart rápido..."
-    docker-compose -f docker-compose.prod.yml restart
+    docker-compose -f docker-compose.simple.yml restart
 fi
 
 # Verificar que los servicios estén funcionando
 sleep 30
-if docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then
+if docker-compose -f docker-compose.simple.yml ps | grep -q "Up"; then
     log "✅ Servicios funcionando correctamente"
 else
     error "❌ Error en los servicios. Revisar logs."
-    docker-compose -f docker-compose.prod.yml logs --tail=50
+    docker-compose -f docker-compose.simple.yml logs --tail=50
     exit 1
 fi
 
@@ -209,11 +209,11 @@ log() {
 cd ~/apps/CactusDashboard
 
 log "=== ESTADO DE SERVICIOS ==="
-docker-compose -f docker-compose.prod.yml ps
+docker-compose -f docker-compose.simple.yml ps
 
 log "=== SALUD DE CONTENEDORES ==="
 for service in db redis backend frontend; do
-    if docker-compose -f docker-compose.prod.yml ps $service | grep -q "Up"; then
+    if docker-compose -f docker-compose.simple.yml ps $service | grep -q "Up"; then
         echo "✅ $service: OK"
     else
         echo "❌ $service: ERROR"
@@ -227,7 +227,7 @@ log "=== ESPACIO EN DISCO ==="
 df -h /
 
 log "=== ÚLTIMOS LOGS ==="
-docker-compose -f docker-compose.prod.yml logs --tail=10
+docker-compose -f docker-compose.simple.yml logs --tail=10
 EOF
 
     # Copiar scripts al servidor
@@ -280,7 +280,7 @@ verify_deployment() {
     
     # Verificar servicios Docker
     log "Verificando servicios Docker..."
-    ssh_exec "cd $REMOTE_APP_DIR && docker-compose -f docker-compose.prod.yml ps"
+    ssh_exec "cd $REMOTE_APP_DIR && docker-compose -f docker-compose.simple.yml ps"
     
     # Verificar conectividad de servicios
     log "Verificando conectividad..."
@@ -333,7 +333,7 @@ main() {
             verify_deployment
             ;;
         "logs")
-            ssh_exec "cd $REMOTE_APP_DIR && docker-compose -f docker-compose.prod.yml logs --tail=50"
+            ssh_exec "cd $REMOTE_APP_DIR && docker-compose -f docker-compose.simple.yml logs --tail=50"
             ;;
         "ssh")
             ssh -i "$SSH_KEY" "$SSH_USER@$SERVER_IP"
