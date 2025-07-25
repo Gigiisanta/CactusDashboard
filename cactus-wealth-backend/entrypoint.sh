@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # =============================================================================
 # 🌵 CACTUS WEALTH BACKEND - SIMPLIFIED CONTAINER ENTRYPOINT
 # =============================================================================
@@ -15,7 +15,8 @@ echo "🔍 Waiting for database to be ready..."
 
 # Espera activa: intenta conectar cada segundo hasta éxito o timeout (30s)
 DB_READY=0
-for i in {1..30}; do
+i=1
+while [ $i -le 30 ]; do
     if python -c "
 import os
 import psycopg2
@@ -43,6 +44,7 @@ except Exception as e:
     else
         echo "⏳ Waiting for DB... ($i)"
         sleep 1
+        i=$((i + 1))
     fi
 done
 
@@ -70,4 +72,4 @@ if [ "${DISABLE_RELOAD}" = "true" ]; then
 else
     echo "👀 File watching enabled (development mode)"
     exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-fi 
+fi
