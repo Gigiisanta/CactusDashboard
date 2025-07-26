@@ -156,7 +156,9 @@ async def process_events(ctx) -> None:
 
 # ARQ worker settings
 class WorkerSettings:
-    functions = [process_events]
+    from cactus_wealth.core.tasks import create_all_snapshots
+
+    functions = [process_events, create_all_snapshots]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(REDIS_URL)
