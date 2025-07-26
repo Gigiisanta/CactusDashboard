@@ -150,9 +150,21 @@ deploy_application() {
         fi
         
         # Stop existing services
-        if [ -f "docker-compose.yml" ]; then
-            docker-compose down || true
-        fi
+        echo "🧹 Limpiando servicios existentes..."
+        docker-compose down --remove-orphans || true
+        docker system prune -f || true
+        
+        # Stop any services using the ports
+        sudo fuser -k 5432/tcp || true
+        sudo fuser -k 6379/tcp || true
+        sudo fuser -k 8000/tcp || true
+        sudo fuser -k 3000/tcp || true
+        
+        # Remove any existing containers using these ports
+        docker ps -a --filter "publish=5432" --format "{{.ID}}" | xargs -r docker rm -f || true
+        docker ps -a --filter "publish=6379" --format "{{.ID}}" | xargs -r docker rm -f || true
+        docker ps -a --filter "publish=8000" --format "{{.ID}}" | xargs -r docker rm -f || true
+        docker ps -a --filter "publish=3000" --format "{{.ID}}" | xargs -r docker rm -f || true
         
         # Build and start services
         echo "🔨 Construyendo y iniciando servicios..."
