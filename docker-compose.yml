@@ -23,9 +23,6 @@ services:
         limits:
           memory: 256M
           cpus: '0.3'
-        reservations:
-          memory: 128M
-          cpus: '0.1'
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cactus_user} -d ${POSTGRES_DB:-cactus_db}"]
       interval: 30s
@@ -70,9 +67,6 @@ services:
         limits:
           memory: 80M
           cpus: '0.1'
-        reservations:
-          memory: 32M
-          cpus: '0.05'
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-cactus_redis_secure_2024}", "ping"]
       interval: 30s
@@ -118,9 +112,6 @@ services:
         limits:
           memory: 384M
           cpus: '0.4'
-        reservations:
-          memory: 256M
-          cpus: '0.2'
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -154,9 +145,6 @@ services:
         limits:
           memory: 256M
           cpus: '0.3'
-        reservations:
-          memory: 192M
-          cpus: '0.2'
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000"]
       interval: 30s
@@ -175,4 +163,4 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: 172.25.0.0/16
