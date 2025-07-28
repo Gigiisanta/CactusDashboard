@@ -91,6 +91,12 @@ tasks:
       - echo "Checking health"
       - scripts/cactus.sh debug:health
 
+  validate:aws:
+    desc: Validate AWS deployment configuration
+    cmds:
+      - echo "Validating AWS deployment configuration"
+      - scripts/validate-deployment.sh
+
   debug:ports:
     desc: Clean port conflicts
     cmds:
@@ -155,4 +161,149 @@ tasks:
     desc: Sync local changes with GitHub repository
     cmds:
       - echo "Syncing with GitHub repository"
-      - scripts/cactus.sh github:sync 
+      - scripts/cactus.sh github:sync
+
+  # ===== AWS DEPLOYMENT TASKS =====
+  deploy:aws:prod:
+    desc: Deploy to AWS production environment
+    cmds:
+      - echo "🚀 Deploying to AWS production..."
+      - docker-compose -f docker-compose.prod.yml build
+      - docker-compose -f docker-compose.prod.yml up -d
+      - echo "✅ Deployment completed"
+
+  logs:all:
+    desc: Show logs from all services
+    cmds:
+      - echo "📋 Showing logs from all services..."
+      - docker-compose -f docker-compose.prod.yml logs -f
+
+  logs:backend:
+    desc: Show backend logs
+    cmds:
+      - echo "📋 Showing backend logs..."
+      - docker-compose -f docker-compose.prod.yml logs -f backend
+
+  logs:frontend:
+    desc: Show frontend logs
+    cmds:
+      - echo "📋 Showing frontend logs..."
+      - docker-compose -f docker-compose.prod.yml logs -f frontend
+
+  logs:db:
+    desc: Show database logs
+    cmds:
+      - echo "📋 Showing database logs..."
+      - docker-compose -f docker-compose.prod.yml logs -f db
+
+  logs:redis:
+    desc: Show Redis logs
+    cmds:
+      - echo "📋 Showing Redis logs..."
+      - docker-compose -f docker-compose.prod.yml logs -f redis
+
+  # ===== NGINX CONFIGURATION TASKS =====
+  nginx:setup:
+    desc: Setup Nginx reverse proxy configuration
+    cmds:
+      - echo "🔧 Setting up Nginx reverse proxy..."
+      - |
+        echo "Creating Nginx configuration for reverse proxy..."
+        echo "This task should be run on the AWS EC2 instance"
+        echo "SSH command: ssh -i cactus-key.pem ubuntu@34.195.179.168"
+        echo ""
+        echo "Run these commands on the server:"
+        echo "sudo cp /home/ubuntu/CactusDashboard/config/docker/nginx.conf /etc/nginx/sites-available/cactus-dashboard"
+        echo "sudo ln -sf /etc/nginx/sites-available/cactus-dashboard /etc/nginx/sites-enabled/default"
+        echo "sudo nginx -t"
+        echo "sudo systemctl reload nginx"
+
+  nginx:validate:
+    desc: Validate Nginx configuration
+    cmds:
+      - echo "✅ Validating Nginx configuration..."
+      - echo "This should be run on the AWS EC2 instance"
+      - echo "Command: sudo nginx -t"
+
+  nginx:reload:
+    desc: Reload Nginx configuration
+    cmds:
+      - echo "🔄 Reloading Nginx..."
+      - echo "This should be run on the AWS EC2 instance"
+      - echo "Command: sudo systemctl reload nginx"
+
+  # ===== VALIDATION TASKS =====
+  validate:aws:full:
+    desc: Full AWS deployment validation
+    cmds:
+      - echo "🔍 Running full AWS validation..."
+      - docker-compose -f docker-compose.prod.yml ps
+      - echo "Checking service health..."
+      - curl -f http://localhost:8000/health || echo "❌ Backend health check failed"
+      - curl -f http://localhost:3000 || echo "❌ Frontend health check failed"
+      - echo "✅ Validation completed"
+
+  validate:endpoints:
+    desc: Validate public endpoints
+    cmds:
+      - echo "🌐 Validating public endpoints..."
+      - curl -f http://34.195.179.168 || echo "❌ Frontend not accessible"
+      - curl -f http://34.195.179.168/api/docs || echo "❌ API docs not accessible"
+      - curl -f http://34.195.179.168/api/health || echo "❌ API health not accessible"
+      - echo "✅ Endpoint validation completed"
+
+  # ===== GITHUB REPOSITORY TASKS =====
+  github:init:
+    desc: Initialize GitHub repository
+    cmds:
+      - echo "📦 Initializing GitHub repository..."
+      - git init
+      - git add .
+      - git commit -m "Initial deploy version - CactusDashboard FinTech platform"
+      - git branch -M main
+      - echo "✅ Repository initialized. Add remote with: git remote add origin <REPO_URL>"
+
+  github:push:
+    desc: Push changes to GitHub
+    cmds:
+      - echo "📤 Pushing changes to GitHub..."
+      - git add .
+      - git commit -m "Update deployment configuration and Taskfile"
+      - git push
+      - echo "✅ Changes pushed to GitHub"
+
+  # ===== MIGRATION TASKS =====
+  migrate:db:
+    desc: Run database migrations
+    cmds:
+      - echo "🗃️ Running database migrations..."
+      - docker-compose -f docker-compose.prod.yml exec backend alembic upgrade head
+      - echo "✅ Migrations completed"
+
+  # ===== MONITORING TASKS =====
+  status:services:
+    desc: Show status of all services
+    cmds:
+      - echo "📊 Checking service status..."
+      - docker-compose -f docker-compose.prod.yml ps
+      - echo ""
+      - echo "🔍 Checking resource usage..."
+      - docker stats --no-stream
+
+  # ===== BACKUP TASKS =====
+  backup:db:
+    desc: Backup database
+    cmds:
+      - echo "💾 Creating database backup..."
+      - mkdir -p ./backups
+      - docker-compose -f docker-compose.prod.yml exec -T db pg_dump -U cactus_user cactus_db > ./backups/database_$(date +%Y%m%d_%H%M%S).sql
+      - echo "✅ Database backup completed"
+
+  # ===== CLEANUP TASKS =====
+  cleanup:docker:
+    desc: Clean up Docker resources
+    cmds:
+      - echo "🧹 Cleaning up Docker resources..."
+      - docker system prune -f
+      - docker volume prune -f
+      - echo "✅ Docker cleanup completed"

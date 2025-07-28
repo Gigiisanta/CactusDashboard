@@ -4,10 +4,11 @@
 # Configuración básica del proyecto
 project_name = "cactus-dashboard"
 environment  = "prod"
-aws_region   = "us-east-1"  # Cambiar según tu preferencia
+aws_region   = "us-east-1"  # Región más económica para t4g
 
 # Configuración de la instancia EC2
-instance_type = "t4g.small"  # ARM64 compatible, similar to t3.micro
+instance_type_current = "t4g.small"  # Free trial hasta 31-dic-2025
+instance_type_next    = "t4g.micro"  # Auto-downgrade después de 31-dic-2025
 
 # Configuración de seguridad
 # IMPORTANTE: Cambiar por tu key pair existente en AWS
@@ -15,7 +16,7 @@ key_pair_name = "cactus-key"
 
 # IMPORTANTE: Cambiar por tu IP específica para mayor seguridad
 # Puedes obtener tu IP con: curl ifconfig.me
-allowed_ssh_cidr = ["0.0.0.0/0"]  # Ejemplo: ["123.456.789.0/32"]
+allowed_ssh_cidr = ["186.127.184.104/32"]  # IP específica para mayor seguridad
 
 # Configuración de dominio (opcional)
 # Si tienes un dominio, descomenta y configura:
@@ -24,8 +25,13 @@ domain_name = ""
 
 # Configuración de alertas
 # Cambiar por tu email real para recibir alertas
-alert_email = "admin@example.com"
+alert_email = "giolivosantarelli@gmail.com"
 
 # Configuración de presupuesto
-# Límite mensual en USD para alertas de costos
-monthly_budget_limit = "10"
+# Límite mensual en USD para alertas de costos (USD 75 + USD 5 forecasted)
+monthly_budget_limit = "75"
+budget_threshold_percentage = 95
+
+# Configuración de almacenamiento
+# Tamaño del volumen EBS en GB (Free Tier: hasta 30GB)
+ebs_volume_size = 30

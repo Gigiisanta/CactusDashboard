@@ -1,0 +1,46 @@
+{
+  "BudgetName": "cactus-dashboard-monthly-budget",
+  "BudgetType": "COST",
+  "BudgetLimit": {
+    "Amount": "75.00",
+    "Unit": "USD"
+  },
+  "TimeUnit": "MONTHLY",
+  "CostFilters": {
+    "TagKeyValue": "Project$cactus-dashboard"
+  },
+  "NotificationsWithSubscribers": [
+    {
+      "Notification": {
+        "ComparisonOperator": "GREATER_THAN",
+        "NotificationType": "ACTUAL",
+        "Threshold": 95,
+        "ThresholdType": "PERCENTAGE"
+      },
+      "Subscribers": [
+        {
+          "Address": "admin@example.com",
+          "SubscriptionType": "EMAIL"
+        },
+        {
+          "Address": "arn:aws:sns:us-east-1:ACCOUNT_ID:cactus-dashboard-budget-alerts",
+          "SubscriptionType": "SNS"
+        }
+      ]
+    }
+  ],
+  "Tags": [
+    {
+      "Key": "Name",
+      "Value": "cactus-dashboard-budget"
+    },
+    {
+      "Key": "Project",
+      "Value": "cactus-dashboard"
+    },
+    {
+      "Key": "Environment",
+      "Value": "prod"
+    }
+  ]
+} 

@@ -541,12 +541,90 @@ setup_dev() {
 # =============================================================================
 
 deploy_aws() {
-    print_header "Deploying to AWS"
-    if [ -f "$PROJECT_ROOT/scripts/deploy/aws-deploy.sh" ]; then
-        bash "$PROJECT_ROOT/scripts/deploy/aws-deploy.sh" || print_error "AWS deployment failed"
-    else
-        print_error "AWS deployment script not found"
+    print_header "Deploying to AWS with Cost Controls"
+    
+    # Check if AWS CLI is installed
+    if ! command -v aws &> /dev/null; then
+        print_error "AWS CLI not found. Please install it first."
+        print_status "Installation guide: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+        return 1
     fi
+    
+    # Check if Terraform is installed
+    if ! command -v terraform &> /dev/null; then
+        print_error "Terraform not found. Please install it first."
+        print_status "Installation guide: https://developer.hashicorp.com/terraform/downloads"
+        return 1
+    fi
+    
+    # Check AWS credentials
+    if ! aws sts get-caller-identity &> /dev/null; then
+        print_error "AWS credentials not configured. Please run 'aws configure' first."
+        return 1
+    fi
+    
+    print_status "AWS credentials verified"
+    
+    # Navigate to terraform directory
+    cd "$PROJECT_ROOT/terraform"
+    
+    # Check if terraform.tfvars exists
+    if [ ! -f "terraform.tfvars" ]; then
+        print_error "terraform.tfvars not found. Please copy terraform.tfvars.example and configure it."
+        return 1
+    fi
+    
+    # Initialize Terraform
+    print_status "Initializing Terraform..."
+    terraform init
+    
+    # Plan deployment
+    print_status "Planning deployment..."
+    terraform plan -out=tfplan
+    
+    # Ask for confirmation
+    echo ""
+    print_warning "This will deploy Cactus Dashboard to AWS with the following configuration:"
+    print_status "- Instance: t4g.small (Free trial until Dec 31, 2025)"
+    print_status "- Auto-downgrade to t4g.micro on Jan 1, 2026"
+    print_status "- Budget limit: $75 USD/month"
+    print_status "- EBS volume: 30GB"
+    print_status "- Region: us-east-1"
+    echo ""
+    
+    read -p "Do you want to proceed with the deployment? (y/N): " -n 1 -r
+    echo ""
+    
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_status "Deployment cancelled"
+        return 1
+    fi
+    
+    # Apply deployment
+    print_status "Applying deployment..."
+    terraform apply tfplan
+    
+    # Get outputs
+    print_success "Deployment completed successfully!"
+    echo ""
+    print_status "Deployment Information:"
+    echo "Instance ID: $(terraform output -raw instance_id)"
+    echo "Public IP: $(terraform output -raw public_ip)"
+    echo "SSH Command: $(terraform output -raw ssh_command)"
+    echo ""
+    print_status "Application URLs:"
+    echo "Frontend: $(terraform output -json application_urls | jq -r '.frontend')"
+    echo "Backend: $(terraform output -json application_urls | jq -r '.backend')"
+    echo ""
+    print_status "Monitoring:"
+    echo "Budget: $(terraform output -json monitoring | jq -r '.budget_name')"
+    echo "Auto-downgrade: $(terraform output -json monitoring | jq -r '.auto_downgrade_date')"
+    echo ""
+    print_status "Next steps:"
+    terraform output -json next_steps | jq -r '.[]'
+    
+    # Return to project root
+    cd "$PROJECT_ROOT"
 }
 
 deploy_local() {

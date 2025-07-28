@@ -97,7 +97,90 @@ task help              # Show all commands
 
 ## 🌩️ **AWS Deployment**
 
+### Cost Control & Budget Management
+
+The Cactus Dashboard is deployed with strict cost controls to ensure it stays within AWS Free Tier limits and budget constraints:
+
+#### **Budget Configuration**
+- **Monthly Budget**: $75 USD (actual) + $5 USD (forecasted)
+- **Alert Threshold**: 95% of budget
+- **Action**: Automatic instance stop when threshold is reached
+- **Region**: us-east-1 (cheapest for t4g instances)
+
+#### **Instance Management**
+- **Current (until Dec 31, 2025)**: `t4g.small` (Free trial - 750 hours/month)
+- **After Jan 1, 2026**: `t4g.micro` (Auto-downgrade via EventBridge)
+- **Credits**: Standard (NO unlimited) to control costs
+- **Storage**: 30GB gp3 EBS volume (Free Tier compatible)
+
+#### **Cost Optimization Features**
+- ✅ **IPv6 Disabled**: Uses only IPv4 to stay within 100GB/month free outbound
+- ✅ **Weekly Backups**: Automated PostgreSQL backups with 5-week rotation
+- ✅ **Snapshot Management**: ≤1GB total backup size
+- ✅ **Nocturnal Tests**: Tests run at 01:00 UTC to avoid credit exhaustion
+- ✅ **Latency Monitoring**: Custom CloudWatch metrics for performance tracking
+
+#### **Budget Guardrails**
+- **AWS Budgets**: Configured with email and SNS notifications
+- **Lambda Function**: Automatically stops instance at 95% threshold
+- **IAM Policies**: Least-privilege access for cost control operations
+- **EventBridge**: Scheduled auto-downgrade on January 1, 2026
+
 ### Automated Deployment
+
+```bash
+# Deploy to AWS with cost controls
+task deploy:aws
+
+# Or use the script directly
+./scripts/cactus.sh deploy:aws
+```
+
+#### **Deployment Prerequisites**
+1. **AWS CLI** installed and configured
+2. **Terraform** installed (version >= 1.0)
+3. **AWS Key Pair** created for SSH access
+4. **terraform.tfvars** configured with your settings
+
+#### **Configuration Steps**
+1. Copy `terraform/terraform.tfvars.example` to `terraform/terraform.tfvars`
+2. Update the following variables:
+   ```bash
+   key_pair_name = "your-aws-key-pair-name"
+   alert_email = "your-email@example.com"
+   allowed_ssh_cidr = ["your-ip-address/32"]
+   ```
+
+#### **Deployment Process**
+The deployment will:
+1. ✅ Create EC2 instance (t4g.small) with standard credits
+2. ✅ Configure 30GB EBS volume with encryption
+3. ✅ Set up security groups and Elastic IP
+4. ✅ Install Docker and deploy Cactus Dashboard
+5. ✅ Configure AWS Budgets with $75/month limit
+6. ✅ Set up auto-downgrade to t4g.micro on Jan 1, 2026
+7. ✅ Enable monitoring and backup systems
+
+#### **Post-Deployment Verification**
+```bash
+# Check deployment status
+task debug:health
+
+# SSH to instance
+ssh -i your-key.pem ubuntu@<public-ip>
+
+# View system information
+./system-info.sh
+
+# Check logs
+docker compose logs -f
+```
+
+#### **Cost Monitoring**
+- **AWS Budgets**: Monitor monthly spending
+- **Cost Explorer**: Track resource usage
+- **CloudWatch**: Monitor performance metrics
+- **SNS Alerts**: Get notified at 95% budget threshold
 ```bash
 # Deploy with Terraform
 cd terraform/

@@ -1,4 +1,3 @@
 !*.pem
-logs/
 !*.env
 !*.env.example

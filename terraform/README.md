@@ -1,340 +1,279 @@
-# 🚀 Guía de Despliegue Automatizado con Terraform
+# 🌵 Cactus Dashboard - AWS Infrastructure
 
-Esta guía te permitirá desplegar Cactus Dashboard en AWS Free Tier de forma completamente automatizada usando Terraform.
+This directory contains the Terraform configuration for deploying Cactus Dashboard to AWS with strict cost controls and Free Tier optimization.
 
-## 📋 Prerrequisitos
+## 🎯 **Deployment Goals**
 
-### 1. Cuenta AWS
-- Cuenta AWS activa con acceso a Free Tier
-- Permisos para crear recursos EC2, VPC, Security Groups, etc.
+- ✅ **12-month operation** with ≤$80 USD promotional credits
+- ✅ **t4g.small** (Free trial until Dec 31, 2025) → **t4g.micro** (Jan 1, 2026)
+- ✅ **AWS Free Tier** compliance for all resources
+- ✅ **Automatic cost control** with budget alerts and instance stopping
+- ✅ **Zero-downtime auto-downgrade** on January 1, 2026
 
-### 2. Herramientas Locales
+## 🏗️ **Infrastructure Components**
+
+### **Compute**
+- **EC2 Instance**: t4g.small (ARM64) with standard CPU credits
+- **Auto-downgrade**: EventBridge + SSM Automation to t4g.micro
+- **Region**: us-east-1 (cheapest for t4g instances)
+
+### **Storage**
+- **EBS Volume**: 30GB gp3 with encryption
+- **Backups**: Weekly PostgreSQL dumps with 5-week rotation
+- **Snapshot Management**: ≤1GB total backup size
+
+### **Network**
+- **Security Groups**: Minimal required ports (22, 80, 443, 3000, 8000)
+- **Elastic IP**: Static public IP address
+- **IPv6 Disabled**: Uses only IPv4 to stay within 100GB/month free outbound
+
+### **Monitoring & Alerts**
+- **AWS Budgets**: $75/month limit with 95% threshold alerts
+- **CloudWatch**: Custom metrics for dashboard latency
+- **SNS**: Email and webhook notifications
+- **Lambda**: Automatic instance stopping at budget threshold
+
+## 🚀 **Quick Deployment**
+
+### **Prerequisites**
 ```bash
-# Instalar AWS CLI
+# Install AWS CLI
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
 
-# Instalar Terraform
-wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip
-unzip terraform_1.6.0_linux_amd64.zip
-sudo mv terraform /usr/local/bin/
-```
+# Install Terraform
+curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs)"
+sudo apt-get update && sudo apt-get install terraform
 
-### 3. Configuración AWS
-```bash
-# Configurar credenciales AWS
+# Configure AWS credentials
 aws configure
-# AWS Access Key ID: [Tu Access Key]
-# AWS Secret Access Key: [Tu Secret Key]
-# Default region name: us-east-1
-# Default output format: json
-
-# Verificar configuración
-aws sts get-caller-identity
 ```
 
-### 4. Key Pair SSH
+### **Deployment Steps**
 ```bash
-# Crear key pair en AWS (si no tienes uno)
-aws ec2 create-key-pair --key-name cactus-dashboard-key --query 'KeyMaterial' --output text > ~/.ssh/cactus-dashboard-key.pem
-chmod 400 ~/.ssh/cactus-dashboard-key.pem
-```
+# 1. Navigate to terraform directory
+cd terraform
 
-## 🚀 Despliegue Rápido (5 minutos)
-
-### Paso 1: Preparar Configuración
-```bash
-cd terraform/
-
-# Copiar y personalizar variables
+# 2. Configure variables
 cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your values
 
-# Editar configuración
-nano terraform.tfvars
-```
-
-**Configuración mínima requerida en `terraform.tfvars`:**
-```hcl
-project_name = "cactus-dashboard"
-environment  = "prod"
-aws_region   = "us-east-1"
-instance_type = "t3.micro"
-key_pair_name = "cactus-dashboard-key"  # Tu key pair
-allowed_ssh_cidr = ["TU.IP.PUBLICA.AQUI/32"]  # Tu IP específica
-```
-
-### Paso 2: Desplegar Infraestructura
-```bash
-# Inicializar Terraform
+# 3. Initialize Terraform
 terraform init
 
-# Revisar plan de despliegue
-terraform plan
+# 4. Plan deployment
+terraform plan -out=tfplan
 
-# Aplicar configuración (crear infraestructura)
-terraform apply
-# Escribir 'yes' cuando se solicite confirmación
+# 5. Apply deployment
+terraform apply tfplan
 ```
 
-### Paso 3: Verificar Despliegue
-```bash
-# Ver outputs importantes
-terraform output
+### **Configuration Variables**
+```hcl
+# Required variables in terraform.tfvars
+key_pair_name = "your-aws-key-pair-name"
+alert_email = "your-email@example.com"
+allowed_ssh_cidr = ["your-ip-address/32"]
 
-# Conectarse a la instancia
-ssh -i ~/.ssh/cactus-dashboard-key.pem ubuntu@$(terraform output -raw public_ip)
-
-# Verificar estado de la aplicación
-./system-info.sh
+# Optional variables
+domain_name = "your-domain.com"  # For custom domain
 ```
 
-## 📊 Información del Despliegue
+## 💰 **Cost Control Features**
 
-### URLs de Acceso
-Después del despliegue, tendrás acceso a:
+### **Budget Management**
+- **Monthly Limit**: $75 USD
+- **Alert Threshold**: 95% ($71.25)
+- **Action**: Automatic instance stop
+- **Notifications**: Email + SNS
 
-- **Frontend**: `http://TU-IP-PUBLICA:3000`
-- **Backend API**: `http://TU-IP-PUBLICA:8000`
-- **Documentación API**: `http://TU-IP-PUBLICA:8000/docs`
-- **Nginx (HTTP)**: `http://TU-IP-PUBLICA`
+### **Resource Optimization**
+- **Instance Credits**: Standard (NO unlimited)
+- **Storage**: 30GB gp3 (Free Tier limit)
+- **Network**: IPv4 only (100GB/month free)
+- **Backups**: Compressed with lifecycle management
 
-### Recursos Creados
-- ✅ Instancia EC2 t3.micro (Free Tier)
-- ✅ Elastic IP
-- ✅ Security Group optimizado
-- ✅ CloudWatch Alarms
-- ✅ SNS Topic para alertas
-- ✅ Budget para control de costos
-- ✅ Route53 (opcional, si configuras dominio)
+### **Auto-Downgrade Process**
+1. **EventBridge Rule**: Triggers on Jan 1, 2026 at 00:15 UTC
+2. **SSM Automation**: Stops instance → Changes type → Starts instance
+3. **Zero Data Loss**: EBS volume preserved during transition
+4. **Service Recovery**: Docker containers restart automatically
 
-### Configuración Automática
-La instancia se configura automáticamente con:
-- ✅ Docker y Docker Compose
-- ✅ Nginx con configuración optimizada
-- ✅ Firewall (UFW) configurado
-- ✅ Swap de 2GB para optimizar memoria
-- ✅ CloudWatch Agent para monitoreo
-- ✅ Fail2ban para seguridad
-- ✅ Scripts de monitoreo y backup
-- ✅ Aplicación Cactus Dashboard desplegada
+## 📊 **Monitoring & Alerts**
 
-## 🔧 Configuración Post-Despliegue
+### **CloudWatch Metrics**
+- **CPU Utilization**: Standard EC2 metrics
+- **Dashboard Latency**: Custom metric for response time
+- **Memory Usage**: System-level monitoring
+- **Disk Usage**: EBS volume monitoring
 
-### 1. Configurar SSL (Recomendado)
+### **SNS Topics**
+- **Budget Alerts**: Notifications at 95% threshold
+- **System Alerts**: Performance and health notifications
+- **Auto-downgrade**: Status updates for instance changes
+
+### **Lambda Functions**
+- **Budget Stop**: Automatically stops instance at threshold
+- **Health Checks**: Monitors application availability
+- **Backup Management**: Manages PostgreSQL backups
+
+## 🔧 **Maintenance & Operations**
+
+### **Backup Management**
 ```bash
-# Conectarse a la instancia
-ssh -i ~/.ssh/cactus-dashboard-key.pem ubuntu@$(terraform output -raw public_ip)
+# Manual backup
+ssh ubuntu@<instance-ip>
+sudo /opt/cactus/backup-db.sh
 
-# Configurar SSL con tu dominio
-cd CactusDashboard
-./scripts/deploy-aws.sh ssl tu-dominio.com
+# Check backup status
+ls -la /ebs/backups/
+du -sh /ebs/backups/
 ```
 
-### 2. Configurar Alertas por Email
+### **Health Monitoring**
 ```bash
-# En AWS Console, ir a SNS y suscribirse al topic creado
-aws sns subscribe \
-    --topic-arn $(terraform output -raw sns_topic_arn) \
-    --protocol email \
-    --notification-endpoint tu-email@ejemplo.com
-```
+# Check application health
+ssh ubuntu@<instance-ip>
+/opt/cactus/health-check.sh
 
-### 3. Configurar Backup Automático
-```bash
-# En la instancia EC2
-crontab -e
-
-# Agregar línea para backup diario a las 2 AM
-0 2 * * * /home/ubuntu/CactusDashboard/scripts/deploy-aws.sh backup
-```
-
-## 📈 Monitoreo y Mantenimiento
-
-### Comandos Útiles en la Instancia
-```bash
-# Ver estado general
+# View system information
 ./system-info.sh
 
-# Ver estado de servicios
-./scripts/deploy-aws.sh status
-
-# Ver logs en tiempo real
-./scripts/deploy-aws.sh logs
-
-# Crear backup manual
-./scripts/deploy-aws.sh backup
-
-# Actualizar aplicación
-./scripts/deploy-aws.sh update
-
-# Limpiar recursos
-./scripts/deploy-aws.sh cleanup
+# Check logs
+docker compose logs -f
 ```
 
-### Monitoreo en AWS Console
-- **CloudWatch**: Métricas de CPU, memoria, disco
-- **CloudWatch Logs**: Logs de aplicación y Nginx
-- **AWS Budgets**: Control de costos
-- **SNS**: Alertas por email
-
-## 🔄 Gestión del Ciclo de Vida
-
-### Actualizar Infraestructura
+### **Auto-Downgrade Status**
 ```bash
-# Modificar terraform.tfvars o main.tf según necesites
-nano terraform.tfvars
+# Check downgrade status
+ssh ubuntu@<instance-ip>
+sudo /opt/cactus/auto-downgrade.sh status
 
-# Aplicar cambios
-terraform plan
-terraform apply
+# Manual downgrade (if needed)
+sudo /opt/cactus/auto-downgrade.sh downgrade
 ```
 
-### Destruir Infraestructura
+## 🛡️ **Security Features**
+
+### **Network Security**
+- **SSH Access**: Restricted to specified IP ranges
+- **Application Ports**: Only required services exposed
+- **Database Access**: Internal only (no public access)
+- **Redis Access**: Internal only (no public access)
+
+### **Data Protection**
+- **EBS Encryption**: All volumes encrypted at rest
+- **Backup Encryption**: Compressed and encrypted backups
+- **Environment Variables**: Sensitive data in environment files
+- **IAM Roles**: Least-privilege access policies
+
+### **Monitoring & Logging**
+- **CloudTrail**: API call logging
+- **CloudWatch Logs**: Application and system logs
+- **Security Groups**: Traffic monitoring
+- **IAM Access**: User and role activity tracking
+
+## 📈 **Performance Optimization**
+
+### **Instance Configuration**
+- **t4g.small**: 2 vCPUs, 2GB RAM (Free trial)
+- **t4g.micro**: 2 vCPUs, 1GB RAM (Post-trial)
+- **Standard Credits**: Controlled CPU burst usage
+- **Swap File**: 1GB for memory management
+
+### **Application Optimization**
+- **Docker Compose**: Efficient container orchestration
+- **Resource Limits**: Memory and CPU constraints
+- **Health Checks**: Automatic service recovery
+- **Log Rotation**: Prevents disk space issues
+
+### **Database Optimization**
+- **PostgreSQL Tuning**: Optimized for small instances
+- **Connection Pooling**: Efficient database connections
+- **Index Optimization**: Fast query performance
+- **Backup Compression**: Reduced storage requirements
+
+## 🚨 **Troubleshooting**
+
+### **Common Issues**
+
+#### **Instance Won't Start**
 ```bash
-# ⚠️ CUIDADO: Esto eliminará todos los recursos
-terraform destroy
-# Escribir 'yes' cuando se solicite confirmación
+# Check instance status
+aws ec2 describe-instances --instance-ids <instance-id>
+
+# Check system logs
+ssh ubuntu@<instance-ip>
+sudo tail -f /var/log/cloud-init-output.log
 ```
 
-### Backup Antes de Destruir
+#### **Application Not Responding**
 ```bash
-# Conectarse y crear backup final
-ssh -i ~/.ssh/cactus-dashboard-key.pem ubuntu@$(terraform output -raw public_ip)
-cd CactusDashboard
-./scripts/deploy-aws.sh backup
+# Check Docker containers
+ssh ubuntu@<instance-ip>
+docker compose ps
+docker compose logs
 
-# Descargar backup a tu máquina local
-scp -i ~/.ssh/cactus-dashboard-key.pem -r ubuntu@$(terraform output -raw public_ip):/opt/cactus/backups ./backups-locales/
+# Check application health
+/opt/cactus/health-check.sh
 ```
 
-## 💰 Optimización de Costos
-
-### Recursos Free Tier Incluidos
-- **EC2**: 750 horas/mes de t3.micro
-- **EBS**: 30 GB de almacenamiento
-- **Elastic IP**: Gratis mientras esté asociada
-- **CloudWatch**: 10 métricas personalizadas
-- **SNS**: 1,000 notificaciones/mes
-
-### Alertas de Presupuesto
-- Configurado automáticamente para $10/mes
-- Alertas al 80% y 100% del presupuesto
-- Notificaciones por email
-
-### Consejos de Optimización
-1. **Parar instancia cuando no la uses**:
-   ```bash
-   aws ec2 stop-instances --instance-ids $(terraform output -raw instance_id)
-   aws ec2 start-instances --instance-ids $(terraform output -raw instance_id)
-   ```
-
-2. **Monitorear uso de recursos**:
-   - Revisar CloudWatch regularmente
-   - Usar `htop` en la instancia para monitoreo en tiempo real
-
-3. **Limpiar recursos regularmente**:
-   ```bash
-   ./scripts/deploy-aws.sh cleanup
-   ```
-
-## 🔒 Seguridad
-
-### Configuración Incluida
-- ✅ Firewall UFW configurado
-- ✅ Fail2ban para protección SSH
-- ✅ Security Group restrictivo
-- ✅ Acceso SSH limitado por IP
-- ✅ SSL/TLS configuración
-- ✅ Headers de seguridad en Nginx
-
-### Recomendaciones Adicionales
-1. **Cambiar puerto SSH** (opcional):
-   ```bash
-   sudo nano /etc/ssh/sshd_config
-   # Cambiar Port 22 por Port 2222
-   sudo systemctl restart ssh
-   ```
-
-2. **Configurar autenticación de dos factores**
-3. **Revisar logs regularmente**:
-   ```bash
-   sudo tail -f /var/log/auth.log
-   ```
-
-## 🆘 Solución de Problemas
-
-### Problemas Comunes
-
-#### 1. Terraform apply falla
+#### **Budget Alerts**
 ```bash
-# Verificar credenciales AWS
-aws sts get-caller-identity
+# Check budget status
+aws budgets describe-budgets --account-id <account-id>
 
-# Verificar permisos
-aws iam get-user
-
-# Limpiar estado si es necesario
-terraform refresh
+# Check recent costs
+aws ce get-cost-and-usage --time-period Start=2024-01-01,End=2024-01-31 --granularity MONTHLY --metrics BlendedCost
 ```
 
-#### 2. Instancia no responde
-```bash
-# Verificar estado en AWS Console
-aws ec2 describe-instances --instance-ids $(terraform output -raw instance_id)
+### **Recovery Procedures**
 
-# Ver logs de user-data
-aws ec2 get-console-output --instance-id $(terraform output -raw instance_id)
-```
+#### **Instance Stopped by Budget**
+1. Review costs in AWS Cost Explorer
+2. Identify cost drivers
+3. Optimize resource usage
+4. Start instance manually if needed
+5. Adjust budget if necessary
 
-#### 3. Aplicación no funciona
-```bash
-# Conectarse y verificar
-ssh -i ~/.ssh/cactus-dashboard-key.pem ubuntu@$(terraform output -raw public_ip)
+#### **Auto-Downgrade Issues**
+1. Check EventBridge rule status
+2. Verify SSM Automation document
+3. Review CloudWatch logs
+4. Execute manual downgrade if needed
 
-# Ver logs de configuración
-sudo tail -f /var/log/cactus-setup.log
+## 📋 **Deployment Checklist**
 
-# Ver estado de Docker
-docker-compose -f CactusDashboard/docker-compose.prod.yml ps
-```
+- [ ] **AWS CLI** installed and configured
+- [ ] **Terraform** installed (version >= 1.0)
+- [ ] **AWS Key Pair** created for SSH access
+- [ ] **terraform.tfvars** configured with correct values
+- [ ] **Budget limit** set to $75/month
+- [ ] **Alert email** configured for notifications
+- [ ] **SSH access** restricted to your IP address
+- [ ] **Domain name** configured (optional)
+- [ ] **Backup schedule** verified (weekly)
+- [ ] **Auto-downgrade** scheduled for Jan 1, 2026
+- [ ] **Monitoring** enabled and configured
+- [ ] **Security groups** properly configured
+- [ ] **EBS volume** encrypted and sized correctly
 
-#### 4. Problemas de memoria
-```bash
-# Verificar swap
-free -h
+## 📞 **Support**
 
-# Reiniciar servicios si es necesario
-cd CactusDashboard
-docker-compose -f docker-compose.prod.yml restart
-```
+For deployment issues:
+1. Check CloudWatch logs for errors
+2. Review Terraform plan output
+3. Verify AWS credentials and permissions
+4. Check instance system logs
+5. Review security group configurations
 
-### Logs Importantes
-- **Setup**: `/var/log/cactus-setup.log`
-- **Aplicación**: `/var/log/cactus/`
-- **Nginx**: `/var/log/nginx/`
-- **Sistema**: `/var/log/syslog`
+## 📄 **Files Description**
 
-## 📞 Soporte
-
-### Recursos Útiles
-- [Documentación AWS Free Tier](https://aws.amazon.com/free/)
-- [Documentación Terraform](https://www.terraform.io/docs)
-- [Guía Docker](https://docs.docker.com/)
-
-### Contacto
-Para problemas específicos del proyecto, crear un issue en el repositorio de GitHub.
-
----
-
-## 🎉 ¡Felicidades!
-
-Si has llegado hasta aquí, deberías tener Cactus Dashboard funcionando completamente en AWS Free Tier. 
-
-**Próximos pasos recomendados:**
-1. Configurar SSL con tu dominio
-2. Configurar alertas por email
-3. Programar backups automáticos
-4. Personalizar la aplicación según tus necesidades
-
-¡Disfruta de tu nueva aplicación en la nube! 🌵☁️
+- **main.tf**: Main Terraform configuration
+- **terraform.tfvars**: Variable definitions (create from example)
+- **user-data.sh**: Instance initialization script
+- **budget-policy.json**: AWS Budget configuration
+- **iam-policy.json**: IAM permissions for cost control
+- **lambda/budget_stop_ec2.zip**: Lambda function for budget control
