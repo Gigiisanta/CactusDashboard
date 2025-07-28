@@ -1,4 +1,3 @@
-import cactus_wealth.crud as crud
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User
 from cactus_wealth.schemas import (
@@ -14,29 +13,45 @@ from cactus_wealth.schemas import (
 )
 from cactus_wealth.security import get_current_user
 from cactus_wealth.services import NotificationService
+from cactus_wealth.repositories import ClientRepository, ActivityRepository, NoteRepository
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlmodel import Session
 
 router = APIRouter()
 
 
+def get_client_repository(session: Session = Depends(get_session)) -> ClientRepository:
+    """Dependency to get client repository."""
+    return ClientRepository(session)
+
+
+def get_activity_repository(session: Session = Depends(get_session)) -> ActivityRepository:
+    """Dependency to get activity repository."""
+    return ActivityRepository(session)
+
+
+def get_note_repository(session: Session = Depends(get_session)) -> NoteRepository:
+    """Dependency to get note repository."""
+    return NoteRepository(session)
+
+
 @router.post("/", response_model=ClientRead, status_code=status.HTTP_201_CREATED)
 def create_client(
     client_create: ClientCreate,
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
     current_user: User = Depends(get_current_user),
 ) -> ClientRead:
     """
     Create a new client for the authenticated advisor.
     """
     try:
-        client = crud.create_client(
-            session=session, client=client_create, owner_id=current_user.id
+        client = client_repo.create_client(
+            client=client_create, owner_id=current_user.id
         )
 
         # Create notification for the advisor
         try:
-            notification_service = NotificationService(session)
+            notification_service = NotificationService(client_repo.session)
             notification_service.create_notification(
                 user_id=current_user.id,
                 message=f"Nuevo cliente añadido: {client.first_name} {client.last_name}",
@@ -54,15 +69,15 @@ def create_client(
 def read_clients(
     skip: int = 0,
     limit: int = 100,
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
     current_user: User = Depends(get_current_user),
 ) -> list[ClientReadWithDetails]:
     """
     Get all clients belonging to the authenticated advisor with full details.
     GOD users can see all clients regardless of ownership.
     """
-    clients = crud.get_clients_by_user(
-        session=session, owner_id=current_user.id, skip=skip, limit=limit, user_role=current_user.role
+    clients = client_repo.get_clients_by_user(
+        owner_id=current_user.id, skip=skip, limit=limit, user_role=current_user.role
     )
     return [ClientReadWithDetails.model_validate(client) for client in clients]
 
@@ -70,14 +85,14 @@ def read_clients(
 @router.get("/{client_id}", response_model=ClientReadWithDetails)
 def read_client(
     client_id: int,
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
     current_user: User = Depends(get_current_user),
 ) -> ClientReadWithDetails:
     """
     Get a specific client by ID with full details (only if owned by the authenticated advisor).
     """
-    client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
+    client = client_repo.get_client(
+        client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
@@ -90,15 +105,14 @@ def read_client(
 def update_client(
     client_id: int,
     client_update: ClientUpdate,
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
     current_user: User = Depends(get_current_user),
 ) -> ClientRead:
     """
     Update a client (only if owned by the authenticated advisor).
     """
     try:
-        client = crud.update_client(
-            session=session,
+        client = client_repo.update_client(
             client_id=client_id,
             client_update=client_update,
             owner_id=current_user.id,
@@ -116,14 +130,14 @@ def update_client(
 @router.delete("/{client_id}", response_model=ClientRead)
 def delete_client(
     client_id: int,
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
     current_user: User = Depends(get_current_user),
 ) -> ClientRead:
     """
     Delete a client (only if owned by the authenticated advisor).
     """
-    client = crud.remove_client(
-        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
+    client = client_repo.remove_client(
+        client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
@@ -140,23 +154,24 @@ def get_client_activities(
     client_id: int,
     limit: int = 50,
     offset: int = 0,
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
+    activity_repo: ActivityRepository = Depends(get_activity_repository),
     current_user: User = Depends(get_current_user),
 ) -> list[ClientActivityRead]:
     """
     Get activities for a specific client (only if owned by the authenticated advisor).
     """
     # Verify client ownership
-    client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
+    client = client_repo.get_client(
+        client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
         )
 
-    activities = crud.get_client_activities(
-        session=session, client_id=client_id, limit=limit, offset=offset
+    activities = activity_repo.get_by_client_id(
+        client_id=client_id, limit=limit, offset=offset
     )
     return [ClientActivityRead.model_validate(activity) for activity in activities]
 
@@ -169,15 +184,16 @@ def get_client_activities(
 def create_client_activity(
     client_id: int,
     activity_data: ClientActivityCreate,
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
+    activity_repo: ActivityRepository = Depends(get_activity_repository),
     current_user: User = Depends(get_current_user),
 ) -> ClientActivityRead:
     """
     Create a new activity for a specific client (only if owned by the authenticated advisor).
     """
     # Verify client ownership
-    client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
+    client = client_repo.get_client(
+        client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
@@ -187,8 +203,8 @@ def create_client_activity(
     # Ensure the activity is for the correct client
     activity_data.client_id = client_id
 
-    activity = crud.create_client_activity(
-        session=session, activity_data=activity_data, created_by=current_user.id
+    activity = activity_repo.create_client_activity(
+        activity_data=activity_data, created_by=current_user.id
     )
     return ClientActivityRead.model_validate(activity)
 
@@ -199,17 +215,18 @@ def create_client_activity(
 @router.get("/{client_id}/notes", response_model=list[ClientNoteRead])
 def get_client_notes(
     client_id: int,
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
+    note_repo: NoteRepository = Depends(get_note_repository),
     current_user: User = Depends(get_current_user),
 ) -> list[ClientNoteRead]:
-    client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
+    client = client_repo.get_client(
+        client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
         )
-    notes = crud.get_client_notes(session=session, client_id=client_id)
+    notes = note_repo.get_by_client_id(client_id=client_id)
     return [ClientNoteRead.model_validate(note) for note in notes]
 
 
@@ -221,19 +238,20 @@ def get_client_notes(
 def create_client_note(
     client_id: int,
     note_data: ClientNoteCreate = Body(...),
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
+    note_repo: NoteRepository = Depends(get_note_repository),
     current_user: User = Depends(get_current_user),
 ) -> ClientNoteRead:
-    client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
+    client = client_repo.get_client(
+        client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
         )
     note_data.client_id = client_id
-    note = crud.create_client_note(
-        session=session, note_create=note_data, user_id=current_user.id
+    note = note_repo.create_client_note(
+        note_create=note_data, user_id=current_user.id
     )
     return ClientNoteRead.model_validate(note, from_attributes=True)
 
@@ -243,23 +261,24 @@ def update_client_note(
     client_id: int,
     note_id: int,
     note_update: ClientNoteUpdate = Body(...),
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
+    note_repo: NoteRepository = Depends(get_note_repository),
     current_user: User = Depends(get_current_user),
 ) -> ClientNoteRead:
-    client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
+    client = client_repo.get_client(
+        client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
         )
-    note = crud.get_client_note(session=session, note_id=note_id)
+    note = note_repo.get_client_note(note_id=note_id)
     if note is None or note.client_id != client_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Note not found"
         )
-    updated_note = crud.update_client_note(
-        session=session, note_id=note_id, note_update=note_update
+    updated_note = note_repo.update_client_note(
+        note_id=note_id, note_update=note_update
     )
     return ClientNoteRead.model_validate(updated_note)
 
@@ -268,20 +287,21 @@ def update_client_note(
 def delete_client_note(
     client_id: int,
     note_id: int,
-    session: Session = Depends(get_session),
+    client_repo: ClientRepository = Depends(get_client_repository),
+    note_repo: NoteRepository = Depends(get_note_repository),
     current_user: User = Depends(get_current_user),
 ):
-    client = crud.get_client(
-        session=session, client_id=client_id, owner_id=current_user.id, user_role=current_user.role
+    client = client_repo.get_client(
+        client_id=client_id, owner_id=current_user.id, user_role=current_user.role
     )
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
         )
-    note = crud.get_client_note(session=session, note_id=note_id)
+    note = note_repo.get_client_note(note_id=note_id)
     if note is None or note.client_id != client_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Note not found"
         )
-    crud.delete_client_note(session=session, note_id=note_id)
+    note_repo.delete_client_note(note_id=note_id)
     return
