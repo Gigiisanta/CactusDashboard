@@ -1,12 +1,17 @@
-import cactus_wealth.crud as crud
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User
 from cactus_wealth.schemas import AssetRead
 from cactus_wealth.security import get_current_user
+from cactus_wealth.repositories import AssetRepository
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session
 
 router = APIRouter()
+
+
+def get_asset_repository(session: Session = Depends(get_session)) -> AssetRepository:
+    """Dependency to get asset repository."""
+    return AssetRepository(session)
 
 
 @router.get("/search", response_model=list[AssetRead])
@@ -20,7 +25,7 @@ def search_assets(
     limit: int = Query(
         10, ge=1, le=20, description="Maximum number of results to return"
     ),
-    session: Session = Depends(get_session),
+    asset_repo: AssetRepository = Depends(get_asset_repository),
     current_user: User = Depends(get_current_user),
 ) -> list[AssetRead]:
     """
@@ -37,5 +42,5 @@ def search_assets(
     Returns:
         List of matching assets with their details including sector information
     """
-    assets = crud.search_assets(session=session, query=query, limit=limit)
+    assets = asset_repo.search_assets(query=query, limit=limit)
     return [AssetRead.model_validate(asset) for asset in assets]
