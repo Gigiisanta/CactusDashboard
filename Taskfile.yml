@@ -223,14 +223,14 @@ tasks:
     cmds:
       - echo "✅ Validating Nginx configuration..."
       - echo "This should be run on the AWS EC2 instance"
-      - echo "Command: sudo nginx -t"
+      - echo "Command sudo nginx -t"
 
   nginx:reload:
     desc: Reload Nginx configuration
     cmds:
       - echo "🔄 Reloading Nginx..."
       - echo "This should be run on the AWS EC2 instance"
-      - echo "Command: sudo systemctl reload nginx"
+      - echo "Command sudo systemctl reload nginx"
 
   # ===== VALIDATION TASKS =====
   validate:aws:full:
@@ -261,7 +261,7 @@ tasks:
       - git add .
       - git commit -m "Initial deploy version - CactusDashboard FinTech platform"
       - git branch -M main
-      - echo "✅ Repository initialized. Add remote with: git remote add origin <REPO_URL>"
+      - echo "✅ Repository initialized. Add remote with git remote add origin <REPO_URL>"
 
   github:push:
     desc: Push changes to GitHub
