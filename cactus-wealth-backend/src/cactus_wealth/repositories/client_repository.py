@@ -3,9 +3,9 @@ Client repository for client-related database operations.
 """
 
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, select
+from sqlmodel import Session, select, func
 
-from ..models import Client, InsurancePolicy, InvestmentAccount
+from ..models import Client, InsurancePolicy, InvestmentAccount, ClientStatus
 from .base_repository import BaseRepository
 
 
@@ -178,3 +178,55 @@ class ClientRepository(BaseRepository[Client]):
             Insurance policy if found, None otherwise
         """
         return self.session.get(InsurancePolicy, policy_id)
+
+    def count_clients_by_advisor(self, advisor_id: int) -> int:
+        """
+        Count total clients for a specific advisor.
+
+        Args:
+            advisor_id: The advisor's user ID
+
+        Returns:
+            Number of clients
+        """
+        statement = select(func.count(Client.id)).where(
+            Client.owner_id == advisor_id,
+            Client.status == ClientStatus.ACTIVE
+        )
+        result = self.session.exec(statement).first()
+        return result or 0
+
+    def count_prospects_by_advisor(self, advisor_id: int) -> int:
+        """
+        Count prospects (potential clients) for a specific advisor.
+
+        Args:
+            advisor_id: The advisor's user ID
+
+        Returns:
+            Number of prospects
+        """
+        statement = select(func.count(Client.id)).where(
+            Client.owner_id == advisor_id,
+            Client.status == ClientStatus.PROSPECT
+        )
+        result = self.session.exec(statement).first()
+        return result or 0
+
+    def sum_aum_by_advisor(self, advisor_id: int) -> float:
+        """
+        Calculate total Assets Under Management (AUM) for a specific advisor.
+
+        Args:
+            advisor_id: The advisor's user ID
+
+        Returns:
+            Total AUM amount
+        """
+        statement = (
+            select(func.sum(InvestmentAccount.balance))
+            .join(Client, InvestmentAccount.client_id == Client.id)
+            .where(Client.owner_id == advisor_id)
+        )
+        result = self.session.exec(statement).first()
+        return float(result or 0)

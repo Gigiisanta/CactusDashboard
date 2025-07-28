@@ -13,6 +13,7 @@ from cactus_wealth.api.v1.api import api_router
 from cactus_wealth.database import get_session as global_get_session
 from cactus_wealth.security import create_access_token
 from cactus_wealth.models import InvestmentAccount, InsurancePolicy, Client, User, Portfolio, Position, Asset, ClientNote, ClientActivity, Notification, ModelPortfolio, ModelPortfolioPosition
+import cactus_wealth.test_utils as test_utils
 
 # Eliminar imports y fixtures locales de engine/session/app/client
 # Usar solo la fixture global 'session' y 'test_client' de conftest.py
@@ -35,9 +36,9 @@ def sample_advisor(session: Session) -> "User":
         password="testpass123",
         role=UserRole.JUNIOR_ADVISOR,
     )
-    from cactus_wealth.crud import create_user
+    from cactus_wealth.test_utils import create_user
 
-    return create_user(session=session, user_create=user_data)
+    return create_user(session=session, user_data=user_data)
 
 
 @pytest.fixture
@@ -51,9 +52,9 @@ def sample_admin(session: Session) -> "User":
         password="testpass123",
         role=UserRole.ADMIN,
     )
-    from cactus_wealth.crud import create_user
+    from cactus_wealth.test_utils import create_user
 
-    return create_user(session=session, user_create=user_data)
+    return create_user(session=session, user_data=user_data)
 
 
 @pytest.fixture
@@ -67,9 +68,9 @@ def sample_advisor_2(session: Session) -> "User":
         password="testpass123",
         role=UserRole.SENIOR_ADVISOR,
     )
-    from cactus_wealth.crud import create_user
+    from cactus_wealth.test_utils import create_user
 
-    return create_user(session=session, user_create=user_data)
+    return create_user(session=session, user_data=user_data)
 
 
 @pytest.fixture
@@ -83,10 +84,10 @@ def sample_client(session: Session, sample_advisor: "User") -> "Client":
         email="juan@test.com",
         risk_profile=RiskProfile.MEDIUM,
     )
-    from cactus_wealth.crud import create_client
+    from cactus_wealth.test_utils import create_client
 
     return create_client(
-        session=session, client=client_data, owner_id=sample_advisor.id
+        session=session, client_data=client_data, owner_id=sample_advisor.id
     )
 
 
@@ -101,10 +102,10 @@ def sample_client_advisor_2(session: Session, sample_advisor_2: "User") -> "Clie
         email="maria@test.com",
         risk_profile=RiskProfile.HIGH,
     )
-    from cactus_wealth.crud import create_client
+    from cactus_wealth.test_utils import create_client
 
     return create_client(
-        session=session, client=client_data, owner_id=sample_advisor_2.id
+        session=session, client_data=client_data, owner_id=sample_advisor_2.id
     )
 
 
@@ -203,13 +204,12 @@ def test_get_investment_account_success(
 ):
     """Test successful retrieval of investment account."""
     # First create an account
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InvestmentAccountCreate
 
     account_data = InvestmentAccountCreate(
         platform="Test Platform", account_number="TEST123", aum=Decimal("30000.00"), client_id=sample_client.id
     )
-    account = crud.create_client_investment_account(
+    account = test_utils.create_client_investment_account(
         session=session, account_data=account_data, client_id=sample_client.id
     )
 
@@ -245,7 +245,6 @@ def test_get_investment_accounts_for_client(
 ):
     """Test getting all investment accounts for a client."""
     # Create multiple accounts
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InvestmentAccountCreate
 
     for i in range(3):
@@ -255,7 +254,7 @@ def test_get_investment_accounts_for_client(
             aum=Decimal(f"{10000 + i * 5000}.00"),
             client_id=sample_client.id
         )
-        crud.create_client_investment_account(
+        test_utils.create_client_investment_account(
             session=session, account_data=account_data, client_id=sample_client.id
         )
 
@@ -279,13 +278,12 @@ def test_update_investment_account_success(
 ):
     """Test successful update of investment account."""
     # Create an account first
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InvestmentAccountCreate
 
     account_data = InvestmentAccountCreate(
         platform="Original Platform", account_number="ORIG123", aum=Decimal("20000.00"), client_id=sample_client.id
     )
-    account = crud.create_client_investment_account(
+    account = test_utils.create_client_investment_account(
         session=session, account_data=account_data, client_id=sample_client.id
     )
 
@@ -312,13 +310,12 @@ def test_delete_investment_account_success(
 ):
     """Test successful deletion of investment account."""
     # Create an account first
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InvestmentAccountCreate
 
     account_data = InvestmentAccountCreate(
         platform="To Delete", account_number="DEL123", aum=Decimal("15000.00"), client_id=sample_client.id
     )
-    account = crud.create_client_investment_account(
+    account = test_utils.create_client_investment_account(
         session=session, account_data=account_data, client_id=sample_client.id
     )
 
@@ -380,7 +377,6 @@ def test_create_insurance_policy_duplicate_number(
 ):
     """Test that creating policy with duplicate policy number fails."""
     # First create a policy
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InsurancePolicyCreate
 
     policy_data = InsurancePolicyCreate(
@@ -390,7 +386,7 @@ def test_create_insurance_policy_duplicate_number(
         coverage_amount=Decimal("50000.00"),
         client_id=sample_client.id
     )
-    crud.create_client_insurance_policy(
+    test_utils.create_client_insurance_policy(
         session=session, policy_data=policy_data, client_id=sample_client.id
     )
 
@@ -450,7 +446,6 @@ def test_get_insurance_policy_success(
 ):
     """Test successful retrieval of insurance policy."""
     # Create a policy first
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InsurancePolicyCreate
 
     policy_data = InsurancePolicyCreate(
@@ -460,7 +455,7 @@ def test_get_insurance_policy_success(
         coverage_amount=Decimal("80000.00"),
         client_id=sample_client.id
     )
-    policy = crud.create_client_insurance_policy(
+    policy = test_utils.create_client_insurance_policy(
         session=session, policy_data=policy_data, client_id=sample_client.id
     )
 
@@ -482,7 +477,6 @@ def test_get_insurance_policies_for_client(
 ):
     """Test getting all insurance policies for a client."""
     # Create multiple policies
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InsurancePolicyCreate
 
     for i in range(2):
@@ -493,7 +487,7 @@ def test_get_insurance_policies_for_client(
             coverage_amount=Decimal(f"{40000 + i * 10000}.00"),
             client_id=sample_client.id
         )
-        crud.create_client_insurance_policy(
+        test_utils.create_client_insurance_policy(
             session=session, policy_data=policy_data, client_id=sample_client.id
         )
 
@@ -516,7 +510,6 @@ def test_update_insurance_policy_success(
 ):
     """Test successful update of insurance policy."""
     # Create a policy first
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InsurancePolicyCreate
 
     policy_data = InsurancePolicyCreate(
@@ -526,7 +519,7 @@ def test_update_insurance_policy_success(
         coverage_amount=Decimal("50000.00"),
         client_id=sample_client.id
     )
-    policy = crud.create_client_insurance_policy(
+    policy = test_utils.create_client_insurance_policy(
         session=session, policy_data=policy_data, client_id=sample_client.id
     )
 
@@ -553,7 +546,6 @@ def test_delete_insurance_policy_success(
 ):
     """Test successful deletion of insurance policy."""
     # Create a policy first
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InsurancePolicyCreate
 
     policy_data = InsurancePolicyCreate(
@@ -563,7 +555,7 @@ def test_delete_insurance_policy_success(
         coverage_amount=Decimal("25000.00"),
         client_id=sample_client.id
     )
-    policy = crud.create_client_insurance_policy(
+    policy = test_utils.create_client_insurance_policy(
         session=session, policy_data=policy_data, client_id=sample_client.id
     )
 
@@ -591,13 +583,12 @@ def test_admin_can_access_any_client_accounts(
 ):
     """Test that admin can access accounts for any client."""
     # Create account for advisor_2's client
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InvestmentAccountCreate
 
     account_data = InvestmentAccountCreate(
         platform="Admin Test", account_number="ADMIN789", aum=Decimal("60000.00"), client_id=sample_client_advisor_2.id
     )
-    account = crud.create_client_investment_account(
+    account = test_utils.create_client_investment_account(
         session=session, account_data=account_data, client_id=sample_client_advisor_2.id
     )
 
@@ -619,7 +610,6 @@ def test_advisor_cannot_access_other_advisor_client_policies(
 ):
     """Test that advisor cannot access policies of other advisor's clients."""
     # Create policy for advisor_2's client
-    import cactus_wealth.crud as crud
     from cactus_wealth.schemas import InsurancePolicyCreate
 
     policy_data = InsurancePolicyCreate(
@@ -629,7 +619,7 @@ def test_advisor_cannot_access_other_advisor_client_policies(
         coverage_amount=Decimal("120000.00"),
         client_id=sample_client_advisor_2.id
     )
-    policy = crud.create_client_insurance_policy(
+    policy = test_utils.create_client_insurance_policy(
         session=session, policy_data=policy_data, client_id=sample_client_advisor_2.id
     )
 

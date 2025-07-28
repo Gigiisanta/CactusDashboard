@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from sqlalchemy import Column, DateTime, Enum, Index
+from sqlalchemy import Column, DateTime, Enum, Index, LargeBinary
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -16,6 +16,8 @@ class UserRole(str, enum.Enum):
 
     GOD = "GOD"  # Super administrator with all permissions
     ADMIN = "ADMIN"
+    MANAGER = "MANAGER"  # Manager role for hierarchy
+    ADVISOR = "ADVISOR"  # Advisor role for hierarchy
     SENIOR_ADVISOR = "SENIOR_ADVISOR"
     JUNIOR_ADVISOR = "JUNIOR_ADVISOR"
 
@@ -80,31 +82,55 @@ class User(SQLModel, table=True):
     __tablename__ = "users"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    email: str = Field(unique=True, max_length=255)
-    username: str = Field(unique=True, max_length=100)
+    email: str = Field(unique=True, index=True, max_length=255)
+    username: str = Field(unique=True, index=True, max_length=50)
     hashed_password: str = Field(max_length=255)
     is_active: bool = Field(default=True)
-    role: UserRole = Field(sa_column=Column(Enum(UserRole), nullable=False))
+    role: UserRole = Field(default=UserRole.ADVISOR)
+    manager_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    google_id: Optional[str] = Field(default=None, max_length=255, index=True)  # Google OAuth ID
+    auth_provider: str = Field(default="local", max_length=50)  # "local", "google", "passkey"
     created_at: datetime = Field(
         default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False)
     )
     updated_at: datetime = Field(
         default_factory=datetime.utcnow,
-        sa_column=Column(DateTime, nullable=False, onupdate=datetime.utcnow),
+        sa_column=Column(
+            DateTime, nullable=False, onupdate=datetime.utcnow
+        ),
     )
 
     # Relationship with clients
     clients: List["Client"] = Relationship(back_populates="owner")
+    
+    # Manager-Advisor hierarchy relationships
+    advisors: List["User"] = Relationship(
+        back_populates="manager",
+        sa_relationship_kwargs={
+            "foreign_keys": "User.manager_id",
+        },
+    )
+    manager: Optional["User"] = Relationship(
+        back_populates="advisors",
+        sa_relationship_kwargs={
+            "foreign_keys": "User.manager_id",
+            "remote_side": "User.id",
+        },
+    )
 
     __table_args__ = (
         Index("ix_users_username", "username"),
         Index("ix_users_email", "email"),
         Index("ix_users_role", "role"),
+        Index("ix_users_manager_id", "manager_id"),
         Index("ix_users_is_active", "is_active"),
         Index("ix_users_created_at", "created_at"),
         Index(
             "ix_users_email_role", "email", "role"
         ),  # Composite index for auth queries
+        Index(
+            "ix_users_manager_role", "manager_id", "role"
+        ),  # Composite index for hierarchy queries
     )
 
 
@@ -545,4 +571,37 @@ class ModelPortfolioPosition(SQLModel, table=True):
         Index(
             "ix_model_portfolio_positions_portfolio_asset", "model_portfolio_id", "asset_id"
         ),  # Composite index for queries
+    )
+
+
+class WebAuthnCredential(SQLModel, table=True):
+    """WebAuthn credential model for Passkey authentication."""
+
+    __tablename__ = "webauthn_credentials"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id")
+    credential_id: str = Field(max_length=255, unique=True)
+    public_key: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
+    sign_count: int = Field(default=0)
+    transports: Optional[str] = Field(default=None, max_length=255)  # JSON string
+    aaguid: Optional[str] = Field(default=None, max_length=36)
+    backup_eligible: bool = Field(default=False)
+    backup_state: bool = Field(default=False)
+    device_type: Optional[str] = Field(default=None, max_length=50)
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False)
+    )
+    last_used_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime, nullable=True)
+    )
+
+    # Relationship with user
+    user: "User" = Relationship()
+
+    __table_args__ = (
+        Index("ix_webauthn_credentials_user_id", "user_id"),
+        Index("ix_webauthn_credentials_credential_id", "credential_id"),
+        Index("ix_webauthn_credentials_created_at", "created_at"),
+        Index("ix_webauthn_credentials_last_used_at", "last_used_at"),
     )

@@ -7,7 +7,7 @@ from cactus_wealth.core.dataprovider import MarketDataProvider, get_market_data_
 from cactus_wealth.database import get_session
 from cactus_wealth.models import Report, User
 from cactus_wealth.security import get_current_user
-from cactus_wealth.services import ReportService
+from cactus_wealth import services
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select
@@ -59,7 +59,7 @@ async def generate_client_report(
             )
 
         # Initialize report service
-        report_service = ReportService(db, market_data_provider)
+        report_service = services.ReportService(db, market_data_provider)
 
         # Generate report
         result = await report_service.generate_portfolio_report(

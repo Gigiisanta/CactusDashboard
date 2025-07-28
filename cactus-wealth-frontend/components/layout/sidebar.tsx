@@ -16,6 +16,8 @@ import {
   TrendingUp,
   PieChart,
   Loader2,
+  Settings,
+  UserCog,
 } from 'lucide-react';
 import DashboardRecentActivity from '@/app/dashboard/components/DashboardRecentActivity';
 import { useClient } from '@/context/ClientContext';
@@ -45,6 +47,11 @@ const navigationItems = [
     href: '/dashboard/analytics',
     label: 'Analytics',
     icon: BarChart3,
+  },
+  {
+    href: '/settings',
+    label: 'Configuración',
+    icon: Settings,
   },
 ];
 
@@ -190,7 +197,7 @@ export function Sidebar({ className }: SidebarProps) {
               href='https://productores.balanz.com/'
               target='_blank'
               rel='noopener noreferrer'
-              className='block'
+              className='mb-2 block'
             >
               <Button
                 variant='ghost'
@@ -208,8 +215,49 @@ export function Sidebar({ className }: SidebarProps) {
                 )}
               </Button>
             </a>
+
+            {/* Zurich Point Link */}
+            <a
+              href='https://agentes.zurich.com.ar'
+              target='_blank'
+              rel='noopener noreferrer'
+              className='block'
+            >
+              <Button
+                variant='ghost'
+                className={cn(
+                  'w-full transition-all duration-200',
+                  isCollapsed ? 'justify-center px-2' : 'justify-start'
+                )}
+                title={isCollapsed ? 'Zurich Point' : undefined}
+              >
+                <ExternalLink
+                  className={cn('h-4 w-4', !isCollapsed && 'mr-2')}
+                />
+                {!isCollapsed && (
+                  <span className='truncate'>Zurich Point</span>
+                )}
+              </Button>
+            </a>
           </div>
         </div>
+      </div>
+
+      {/* Profile Section - Bottom */}
+      <div className='border-t border-gray-100 p-4'>
+        <Link href='/profile'>
+          <Button
+            variant='ghost'
+            className={cn(
+              'w-full transition-all duration-200',
+              isCollapsed ? 'justify-center px-2' : 'justify-start'
+            )}
+            title={isCollapsed ? 'Perfil' : undefined}
+          >
+            <UserCog className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+            {!isCollapsed && <span className='truncate'>Perfil</span>}
+          </Button>
+        </Link>
       </div>
 
       {/* Recent Activity - Bottom Section */}

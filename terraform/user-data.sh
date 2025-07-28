@@ -126,8 +126,8 @@ systemctl enable nginx
 log "📂 Clonando repositorio..."
 cd /home/ubuntu
 if [ ! -d "CactusDashboard" ]; then
-    # Nota: Cambiar esta URL por la URL real de tu repositorio
-    sudo -u ubuntu git clone https://github.com/tu-usuario/CactusDashboard.git
+    # Clonar desde el repositorio correcto
+    sudo -u ubuntu git clone https://github.com/Gigiisanta/CactusDashboard.git
     chown -R ubuntu:ubuntu CactusDashboard
     log "✅ Repositorio clonado"
 else

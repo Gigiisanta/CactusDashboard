@@ -14,7 +14,7 @@ from sqlmodel import Session
 
 @pytest.fixture
 def client_and_token(session, test_client):
-    from cactus_wealth.crud import create_user, create_client
+    from cactus_wealth.test_utils import create_user, create_client
     from cactus_wealth.models import UserRole, RiskProfile
     from cactus_wealth.schemas import UserCreate, ClientCreate
     from cactus_wealth.security import create_access_token

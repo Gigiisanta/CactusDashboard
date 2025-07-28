@@ -8,6 +8,7 @@ import {
   PortfolioValuation,
   ApiError,
   DashboardSummaryResponse,
+  DashboardMetrics,
   ReportGenerationResponse,
   InvestmentAccount,
   InsurancePolicy,
@@ -180,6 +181,13 @@ class ApiClient {
     const response = await apiClientInterceptor
       .getClient()
       .get<DashboardSummaryResponse>('/dashboard/summary');
+    return response.data;
+  }
+
+  async getDashboardMetrics(): Promise<DashboardMetrics> {
+    const response = await apiClientInterceptor
+      .getClient()
+      .get<DashboardMetrics>('/dashboard/summary');
     return response.data;
   }
 

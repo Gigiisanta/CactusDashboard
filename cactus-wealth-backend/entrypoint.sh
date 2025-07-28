@@ -55,10 +55,20 @@ else
 fi
 
 # Run migrations solo si hay pendientes
-if alembic heads | grep -q $(alembic current | awk '{print $3}'); then
-    echo "✅ No hay migraciones pendientes."
+echo "🧠 Checking migrations..."
+if alembic current >/dev/null 2>&1 && alembic heads >/dev/null 2>&1; then
+    CURRENT_REV=$(alembic current 2>/dev/null | awk '{print $3}' || echo "")
+    HEAD_REV=$(alembic heads 2>/dev/null | tail -1 | awk '{print $1}' || echo "")
+    
+    if [ "$CURRENT_REV" = "$HEAD_REV" ] && [ -n "$CURRENT_REV" ]; then
+        echo "✅ No hay migraciones pendientes."
+    else
+        echo "🧠 Running migrations..."
+        alembic upgrade head || echo "⚠️ Migration failed, but continuing..."
+        echo "✅ Migrations completed!"
+    fi
 else
-    echo "🧠 Running migrations..."
+    echo "🧠 Running initial migrations..."
     alembic upgrade head || echo "⚠️ Migration failed, but continuing..."
     echo "✅ Migrations completed!"
 fi

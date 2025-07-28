@@ -1,6 +1,6 @@
-import cactus_wealth.crud as crud
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User
+from cactus_wealth.repositories import AssetRepository
 from cactus_wealth.schemas import AssetRead
 from cactus_wealth.security import get_current_user
 from fastapi import APIRouter, Depends, Query
@@ -37,5 +37,6 @@ def search_assets(
     Returns:
         List of matching assets with their details including sector information
     """
-    assets = crud.search_assets(session=session, query=query, limit=limit)
+    asset_repo = AssetRepository(session)
+    assets = asset_repo.search_assets(query=query, limit=limit)
     return [AssetRead.model_validate(asset) for asset in assets]

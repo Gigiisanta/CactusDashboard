@@ -14,7 +14,7 @@ from cactus_wealth.models import (
     User,
     UserRole,
 )
-from cactus_wealth.services import ReportService
+import cactus_wealth.services as services
 from sqlmodel import Session
 
 
@@ -36,7 +36,7 @@ class TestReportService:
     @pytest.fixture
     def report_service(self, mock_db_session, mock_market_data_provider):
         """Create ReportService instance with mocked dependencies."""
-        return ReportService(mock_db_session, mock_market_data_provider)
+        return services.ReportService(mock_db_session, mock_market_data_provider)
 
     @pytest.fixture
     def sample_user(self):

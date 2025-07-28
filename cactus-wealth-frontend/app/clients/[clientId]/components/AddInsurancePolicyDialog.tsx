@@ -181,7 +181,7 @@ export function AddInsurancePolicyDialog({
           </div>
 
           <div className='space-y-2'>
-            <Label htmlFor='insurance_type'>Tipo de Seguro *</Label>
+            <Label id='insurance_type_label' htmlFor='insurance_type'>Tipo de Seguro *</Label>
             <Select
               value={formData.insurance_type}
               onValueChange={(value) =>
@@ -189,6 +189,8 @@ export function AddInsurancePolicyDialog({
               }
             >
               <SelectTrigger
+                id='insurance_type'
+                aria-labelledby='insurance_type_label'
                 className={errors.insurance_type ? 'border-destructive' : ''}
               >
                 <SelectValue placeholder='Selecciona el tipo de seguro' />

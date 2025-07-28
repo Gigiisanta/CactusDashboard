@@ -173,23 +173,35 @@ async def handle_client_message(data: dict, user_id: int, websocket: WebSocket):
     elif message_type == "request_latest_notifications":
         # El cliente solicita las últimas notificaciones
         try:
-            from cactus_wealth.services import NotificationService
-
-            notification_service = NotificationService()
-            notifications = await notification_service.get_recent_notifications(
-                user_id, limit=10
-            )
-
-            await websocket.send_text(
-                json.dumps(
-                    {
-                        "type": "notification_history",
-                        "data": [
-                            notification.model_dump() for notification in notifications
-                        ],
-                    }
+            from cactus_wealth.database import get_session
+            from cactus_wealth.repositories.notification_repository import NotificationRepository
+            
+            # Crear una sesión de base de datos para el WebSocket
+            session = next(get_session())
+            try:
+                notification_repo = NotificationRepository(session)
+                notifications = notification_repo.get_user_notifications(
+                    user_id=user_id, limit=10
                 )
-            )
+
+                await websocket.send_text(
+                    json.dumps(
+                        {
+                            "type": "notification_history",
+                            "data": [
+                                {
+                                    "id": notification.id,
+                                    "message": notification.message,
+                                    "read": notification.read,
+                                    "created_at": notification.created_at.isoformat(),
+                                }
+                                for notification in notifications
+                            ],
+                        }
+                    )
+                )
+            finally:
+                session.close()
         except Exception as e:
             logger.error(f"Error fetching notifications for user {user_id}: {e}")
             await websocket.send_text(

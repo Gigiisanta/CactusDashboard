@@ -7,7 +7,6 @@ from pathlib import Path
 import os
 from typing import Any
 
-import cactus_wealth.crud as crud
 import numpy as np
 import pandas as pd
 import redis
@@ -31,6 +30,8 @@ from cactus_wealth.models import (
 from cactus_wealth.repositories import (
     AssetRepository,
     ClientRepository,
+    InvestmentAccountRepository,
+    InsurancePolicyRepository,
     NotificationRepository,
     PortfolioRepository,
 )
@@ -47,35 +48,30 @@ from pydantic import BaseModel
 from fastapi import HTTPException, status, UploadFile
 
 # Import webhook system
-import sys
-sys.path.append('/app/src')
-from cactuscrm.webhook_service import WebhookService
-from cactuscrm.webhook_config import WebhookEventType, DEFAULT_N8N_CONFIG
+# import sys
+# sys.path.append('/app/src')
+# from cactuscrm.webhook_service import WebhookService
+# from cactuscrm.webhook_config import WebhookEventType, DEFAULT_N8N_CONFIG
 
 logger = get_structured_logger(__name__)
 
 
 class CactusWebhookService:
-    """Service for sending webhooks to n8n and other external systems"""
+    """Simplified webhook service for development"""
 
     def __init__(self):
-        self.webhook_service = WebhookService()
         self.redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-        self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
-        
-        # Initialize with default n8n webhook
-        asyncio.create_task(self._initialize_webhooks())
-
-    async def _initialize_webhooks(self):
-        """Initialize default webhook configurations"""
         try:
-            await self.webhook_service.add_webhook(DEFAULT_N8N_CONFIG)
-            logger.info("webhook_service_initialized", webhook_url=DEFAULT_N8N_CONFIG.url)
-        except Exception as e:
-            logger.error("webhook_service_init_failed", error=str(e))
+            self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
+        except Exception:
+            self.redis_client = None
 
     def emit_client_event(self, event_type: str, client_data: dict[str, Any]) -> bool:
         """Encola un evento de cliente en Redis para ser procesado por un worker."""
+        if not self.redis_client:
+            logger.warning("Redis not available, skipping event emission")
+            return False
+            
         event = {
             "event": event_type,
             "payload": client_data,
@@ -110,19 +106,13 @@ class CactusWebhookService:
                 else str(client.lead_source) if client.lead_source else None
             ),
             "notes": client.notes,
-            "portfolio_name": client.portfolio_name,
             "created_at": client.created_at.isoformat() if client.created_at else None,
             "updated_at": client.updated_at.isoformat() if client.updated_at else None,
         }
         
-        # Send webhook
-        await self.webhook_service.trigger_event(
-            WebhookEventType.CLIENT_CREATED,
-            client_data
-        )
-        
-        # Also queue for Redis processing (backward compatibility)
+        # Queue for Redis processing
         self.emit_client_event("client.created", client_data)
+        logger.info("client_created_event_emitted", client_id=client.id)
 
     async def client_updated(self, client: "Client") -> None:
         """Send webhook when client is updated"""
@@ -147,78 +137,29 @@ class CactusWebhookService:
                 else str(client.lead_source) if client.lead_source else None
             ),
             "notes": client.notes,
-            "portfolio_name": client.portfolio_name,
             "created_at": client.created_at.isoformat() if client.created_at else None,
             "updated_at": client.updated_at.isoformat() if client.updated_at else None,
         }
         
-        # Send webhook
-        await self.webhook_service.trigger_event(
-            WebhookEventType.CLIENT_UPDATED,
-            client_data
-        )
-        
-        # Also queue for Redis processing (backward compatibility)
+        # Queue for Redis processing
         self.emit_client_event("client.updated", client_data)
+        logger.info("client_updated_event_emitted", client_id=client.id)
 
     async def portfolio_created(self, portfolio: "Portfolio") -> None:
         """Send webhook when portfolio is created"""
-        portfolio_data = {
-            "id": portfolio.id,
-            "name": portfolio.name,
-            "client_id": portfolio.client_id,
-            "created_at": portfolio.created_at.isoformat() if portfolio.created_at else None,
-        }
-        
-        await self.webhook_service.trigger_event(
-            WebhookEventType.PORTFOLIO_CREATED,
-            portfolio_data
-        )
+        logger.info("portfolio_created_event", portfolio_id=portfolio.id)
 
     async def portfolio_updated(self, portfolio: "Portfolio") -> None:
         """Send webhook when portfolio is updated"""
-        portfolio_data = {
-            "id": portfolio.id,
-            "name": portfolio.name,
-            "client_id": portfolio.client_id,
-            "updated_at": portfolio.updated_at.isoformat() if portfolio.updated_at else None,
-        }
-        
-        await self.webhook_service.trigger_event(
-            WebhookEventType.PORTFOLIO_UPDATED,
-            portfolio_data
-        )
+        logger.info("portfolio_updated_event", portfolio_id=portfolio.id)
 
     async def notification_sent(self, notification: "Notification") -> None:
         """Send webhook when notification is sent"""
-        notification_data = {
-            "id": notification.id,
-            "user_id": notification.user_id,
-            "title": notification.title,
-            "message": notification.message,
-            "type": notification.type,
-            "sent_at": datetime.now(UTC).isoformat(),
-        }
-        
-        await self.webhook_service.trigger_event(
-            WebhookEventType.NOTIFICATION_SENT,
-            notification_data
-        )
+        logger.info("notification_sent_event", notification_id=notification.id)
 
     async def user_registered(self, user: "User") -> None:
         """Send webhook when user is registered"""
-        user_data = {
-            "id": user.id,
-            "email": user.email,
-            "full_name": user.full_name,
-            "role": user.role.value if hasattr(user.role, "value") else str(user.role),
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-        }
-        
-        await self.webhook_service.trigger_event(
-            WebhookEventType.USER_REGISTERED,
-            user_data
-        )
+        logger.info("user_registered_event", user_id=user.id, email=user.email)
 
 
 # Global webhook service instance
@@ -1013,6 +954,8 @@ class InvestmentAccountService:
     def __init__(self, db_session: Session):
         """Initialize the investment account service."""
         self.db = db_session
+        self.investment_account_repo = InvestmentAccountRepository(db_session)
+        self.client_repo = ClientRepository(db_session)
 
     def create_account_for_client(
         self,
@@ -1039,8 +982,8 @@ class InvestmentAccountService:
 
         try:
             # Create the investment account
-            return crud.create_client_investment_account(
-                session=self.db, account_data=account_data, client_id=client_id
+            return self.investment_account_repo.create_client_investment_account(
+                account_data=account_data, client_id=client_id
             )
         except Exception as e:
             logger.error(
@@ -1066,7 +1009,7 @@ class InvestmentAccountService:
             HTTPException: If authorization fails or account not found
         """
         # Get the account
-        account = crud.get_investment_account(session=self.db, account_id=account_id)
+        account = self.investment_account_repo.get_investment_account(account_id=account_id)
         if not account:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -1099,8 +1042,8 @@ class InvestmentAccountService:
         # Verify client ownership/access
         self._verify_client_access(client_id, current_advisor)
 
-        return crud.get_investment_accounts_by_client(
-            session=self.db, client_id=client_id, skip=skip, limit=limit
+        return self.investment_account_repo.get_investment_accounts_by_client(
+            client_id=client_id, skip=skip, limit=limit
         )
 
     def update_account(
@@ -1127,8 +1070,8 @@ class InvestmentAccountService:
         account = self.get_account(account_id, current_advisor)
 
         try:
-            return crud.update_investment_account(
-                session=self.db, account_db_obj=account, update_data=update_data
+            return self.investment_account_repo.update_investment_account(
+                account_db_obj=account, update_data=update_data
             )
         except Exception as e:
             logger.error(f"Failed to update investment account {account_id}: {str(e)}")
@@ -1156,8 +1099,8 @@ class InvestmentAccountService:
         # Get and verify account access (this also checks authorization)
         self.get_account(account_id, current_advisor)
 
-        deleted_account = crud.delete_investment_account(
-            session=self.db, account_id=account_id
+        deleted_account = self.investment_account_repo.delete_investment_account(
+            account_id=account_id
         )
         if not deleted_account:
             raise HTTPException(
@@ -1252,12 +1195,7 @@ class InvestmentAccountService:
         """
         # ADMIN users can access any client
         if current_advisor.role == UserRole.ADMIN:
-            client = crud.get_client(
-                session=self.db, client_id=client_id, owner_id=None
-            )
-            if not client:
-                # For ADMIN, we need to check without owner restriction
-                client = self.db.get(Client, client_id)
+            client = self.client_repo.get_client(client_id=client_id)
             if not client:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
@@ -1265,221 +1203,11 @@ class InvestmentAccountService:
             return client
 
         # Non-ADMIN users can only access their own clients
-        client = crud.get_client(
-            session=self.db, client_id=client_id, owner_id=current_advisor.id
-        )
-        if not client:
+        client = self.client_repo.get_client(client_id=client_id)
+        if not client or client.advisor_id != current_advisor.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied. You can only manage accounts for your own clients.",
-            )
-
-        return client
-
-
-# ============ INSURANCE POLICY SERVICE ============
-
-
-class InsurancePolicyService:
-    """Service class for Insurance Policy business logic with authorization."""
-
-    def __init__(self, db_session: Session):
-        """Initialize the insurance policy service."""
-        self.db = db_session
-
-    def create_policy_for_client(
-        self,
-        policy_data: schemas.InsurancePolicyCreate,
-        client_id: int,
-        current_advisor: User,
-    ) -> InsurancePolicy:
-        """
-        Create an insurance policy for a client with proper authorization.
-
-        Args:
-            policy_data: Insurance policy creation data
-            client_id: ID of the client
-            current_advisor: Current authenticated advisor
-
-        Returns:
-            Created InsurancePolicy instance
-
-        Raises:
-            HTTPException: If authorization fails or client not found
-        """
-        # Verify client ownership/access
-        self._verify_client_access(client_id, current_advisor)
-
-        try:
-            # Create the insurance policy
-            return crud.create_client_insurance_policy(
-                session=self.db, policy_data=policy_data, client_id=client_id
-            )
-        except ValueError as e:
-            # Policy number already exists
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-        except Exception as e:
-            logger.error(
-                f"Failed to create insurance policy for client {client_id}: {str(e)}"
-            )
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to create insurance policy: {str(e)}",
-            )
-
-    def get_policy(self, policy_id: int, current_advisor: User) -> InsurancePolicy:
-        """
-        Get an insurance policy with proper authorization.
-
-        Args:
-            policy_id: ID of the insurance policy
-            current_advisor: Current authenticated advisor
-
-        Returns:
-            InsurancePolicy instance
-
-        Raises:
-            HTTPException: If authorization fails or policy not found
-        """
-        # Get the policy
-        policy = crud.get_insurance_policy(session=self.db, policy_id=policy_id)
-        if not policy:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Insurance policy not found",
-            )
-
-        # Verify client ownership/access through the policy's client
-        self._verify_client_access(policy.client_id, current_advisor)
-
-        return policy
-
-    def get_policies_by_client(
-        self, client_id: int, current_advisor: User, skip: int = 0, limit: int = 100
-    ) -> list[InsurancePolicy]:
-        """
-        Get all insurance policies for a client with proper authorization.
-
-        Args:
-            client_id: ID of the client
-            current_advisor: Current authenticated advisor
-            skip: Number of records to skip
-            limit: Maximum number of records to return
-
-        Returns:
-            List of InsurancePolicy instances
-
-        Raises:
-            HTTPException: If authorization fails or client not found
-        """
-        # Verify client ownership/access
-        self._verify_client_access(client_id, current_advisor)
-
-        return crud.get_insurance_policies_by_client(
-            session=self.db, client_id=client_id, skip=skip, limit=limit
-        )
-
-    def update_policy(
-        self,
-        policy_id: int,
-        update_data: schemas.InsurancePolicyUpdate,
-        current_advisor: User,
-    ) -> InsurancePolicy:
-        """
-        Update an insurance policy with proper authorization.
-
-        Args:
-            policy_id: ID of the insurance policy
-            update_data: Update data
-            current_advisor: Current authenticated advisor
-
-        Returns:
-            Updated InsurancePolicy instance
-
-        Raises:
-            HTTPException: If authorization fails or policy not found
-        """
-        # Get and verify policy access
-        policy = self.get_policy(policy_id, current_advisor)
-
-        try:
-            return crud.update_insurance_policy(
-                session=self.db, policy_db_obj=policy, update_data=update_data
-            )
-        except ValueError as e:
-            # Policy number conflict
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-        except Exception as e:
-            logger.error(f"Failed to update insurance policy {policy_id}: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to update insurance policy: {str(e)}",
-            )
-
-    def delete_policy(self, policy_id: int, current_advisor: User) -> InsurancePolicy:
-        """
-        Delete an insurance policy with proper authorization.
-
-        Args:
-            policy_id: ID of the insurance policy
-            current_advisor: Current authenticated advisor
-
-        Returns:
-            Deleted InsurancePolicy instance
-
-        Raises:
-            HTTPException: If authorization fails or policy not found
-        """
-        # Get and verify policy access (this also checks authorization)
-        self.get_policy(policy_id, current_advisor)
-
-        deleted_policy = crud.delete_insurance_policy(
-            session=self.db, policy_id=policy_id
-        )
-        if not deleted_policy:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Insurance policy not found",
-            )
-
-        return deleted_policy
-
-    def _verify_client_access(self, client_id: int, current_advisor: User) -> Client:
-        """
-        Verify that the current advisor has access to the specified client.
-
-        Args:
-            client_id: ID of the client
-            current_advisor: Current authenticated advisor
-
-        Returns:
-            Client instance if access is granted
-
-        Raises:
-            HTTPException: If authorization fails or client not found
-        """
-        # ADMIN users can access any client
-        if current_advisor.role == UserRole.ADMIN:
-            client = crud.get_client(
-                session=self.db, client_id=client_id, owner_id=None
-            )
-            if not client:
-                # For ADMIN, we need to check without owner restriction
-                client = self.db.get(Client, client_id)
-            if not client:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
-                )
-            return client
-
-        # Non-ADMIN users can only access their own clients
-        client = crud.get_client(
-            session=self.db, client_id=client_id, owner_id=current_advisor.id
-        )
-        if not client:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied. You can only manage policies for your own clients.",
             )
 
         return client
@@ -2135,3 +1863,19 @@ try:
 except Exception:
     redis_client = None
     REDIS_AVAILABLE = False
+
+
+# Export all service classes
+__all__ = [
+    "CactusWebhookService",
+    "PortfolioService", 
+    "ReportService",
+    "DashboardService",
+    "InvestmentAccountService",
+    "InsurancePolicyService",
+    "NotificationService",
+    "PortfolioBacktestService",
+    "webhook_service",
+    "redis_client",
+    "REDIS_AVAILABLE"
+]

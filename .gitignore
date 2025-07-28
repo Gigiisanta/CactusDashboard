@@ -3,6 +3,8 @@
 node_modules/
 venv/
 .venv/
+env/
+.env/
 
 # Build outputs
 dist/
@@ -19,47 +21,60 @@ coverage/
 .ruff_cache/
 __pycache__/
 .cactus-cache/
+.npm/
+.eslintcache/
 
 # Environment files
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.test
 
 # Database files
 *.db
 *.sqlite
 *.sqlite3
 dump.rdb
+*.rdb
 
 # Log files
 logs/*.log
 logs/*.pid
 *.log
+*.pid
 
 # Test results
 test-results/
 playwright-report/
 .coverage
 .coverage.*
+junit.xml
 
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Temporary files
 *.tmp
 *.temp
 .tmp/
+temp/
 
 # Build info
 tsconfig.tsbuildinfo
 .requirements.hash
+.next/
+out/
 
 # Terraform
 *.tfstate
@@ -69,3 +84,114 @@ tsconfig.tsbuildinfo
 
 # Docker
 .dockerignore
+docker-compose.override.yml
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local development
+.local
+
+# Development and debug files
+.trae/
+.cursor/
+*.debug
+debug-*.js
+debug-*.py
+
+# OAuth tokens and sensitive data
+tokens/*.token
+*.key
+*.pem
+
+# Development scripts (not needed in production)
+test-*.sh
+debug-*.sh
+fix-*.sh
+clean-*.sh
+
+# Documentation files (development only)
+*_SUMMARY.md
+*_REPORT.md
+*_DEBUG.md
+*_CLEANUP.md
+CONSOLIDATION_*.md
+REPO_*.md
+SCRIPTS_*.md
+
+# Legacy and obsolete files
+cactuscrm/
+tools/
+legacy/

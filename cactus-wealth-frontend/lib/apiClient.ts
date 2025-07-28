@@ -92,10 +92,22 @@ export class ApiClientInterceptor {
   }
 }
 
-// Create singleton instance
-const apiClientInterceptorInstance = new ApiClientInterceptor(API_BASE_URL);
-export const apiClientInterceptor = apiClientInterceptorInstance;
-export const apiClient = apiClientInterceptorInstance.getClient();
+// Create singleton instance only if not in test environment
+let apiClientInterceptorInstance: ApiClientInterceptor;
+let apiClientInterceptor: ApiClientInterceptor;
+let apiClient: AxiosInstance;
+
+if (process.env.NODE_ENV !== 'test') {
+  apiClientInterceptorInstance = new ApiClientInterceptor(API_BASE_URL);
+  apiClientInterceptor = apiClientInterceptorInstance;
+  apiClient = apiClientInterceptorInstance.getClient();
+} else {
+  // In test environment, create mock instances
+  apiClientInterceptor = {} as ApiClientInterceptor;
+  apiClient = {} as AxiosInstance;
+}
+
+export { apiClientInterceptor, apiClient };
 
 // Test-only: permite crear una instancia nueva para tests
 // @ts-ignore
@@ -111,11 +123,13 @@ export const extendedApiClient = {
     clientId: number,
     formData: FormData
   ) => {
-    const response = await apiClientInterceptor
-      .getClient()
-      .post(`/clients/${clientId}/investment-accounts/bulk-upload/`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+    const client = process.env.NODE_ENV !== 'test' 
+      ? apiClientInterceptor.getClient()
+      : {} as AxiosInstance;
+    
+    const response = await client.post(`/clients/${clientId}/investment-accounts/bulk-upload/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return response;
   },
 };

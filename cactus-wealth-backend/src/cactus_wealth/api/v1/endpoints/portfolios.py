@@ -6,11 +6,7 @@ from cactus_wealth.core.dataprovider import YahooFinanceProvider
 from cactus_wealth.database import get_session
 from cactus_wealth.models import Client, Portfolio, User
 from cactus_wealth.security import get_current_user as get_current_active_user
-from cactus_wealth.services import (
-    PortfolioBacktestService,
-    PortfolioService,
-    ReportService,
-)
+from cactus_wealth import services
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlmodel import Session, select
@@ -68,7 +64,7 @@ def get_portfolio_valuation(
     try:
         # Create market data provider and portfolio service
         market_data_provider = YahooFinanceProvider()
-        portfolio_service = PortfolioService(session, market_data_provider)
+        portfolio_service = services.PortfolioService(session, market_data_provider)
 
         # Get portfolio valuation
         valuation = portfolio_service.get_portfolio_valuation(portfolio_id)
@@ -140,8 +136,8 @@ def download_portfolio_report(
     try:
         # Create services
         market_data_provider = YahooFinanceProvider()
-        portfolio_service = PortfolioService(session, market_data_provider)
-        report_service = ReportService(session, market_data_provider)
+        portfolio_service = services.PortfolioService(session, market_data_provider)
+        report_service = services.ReportService(session, market_data_provider)
 
         # Get portfolio valuation first
         logger.info(f"Getting valuation data for portfolio {portfolio_id}")
@@ -223,7 +219,7 @@ async def backtest_portfolio(
         # including portfolio weights and ticker validation
 
         # Create optimized backtest service and perform concurrent analysis
-        backtest_service = PortfolioBacktestService()
+        backtest_service = services.PortfolioBacktestService()
         result = await backtest_service.perform_backtest(request)
 
         logger.info(

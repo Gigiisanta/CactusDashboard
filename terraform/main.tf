@@ -33,7 +33,7 @@ variable "aws_region" {
 variable "instance_type" {
   description = "Tipo de instancia EC2"
   type        = string
-  default     = "t3.micro"  # Free Tier eligible
+  default     = "t4g.small"  # ARM64 compatible, similar to t3.micro
 }
 
 variable "key_pair_name" {
@@ -53,6 +53,18 @@ variable "domain_name" {
   default     = ""
 }
 
+variable "alert_email" {
+  description = "Email para alertas"
+  type        = string
+  default     = "admin@example.com"
+}
+
+variable "monthly_budget_limit" {
+  description = "Límite mensual del presupuesto en USD"
+  type        = string
+  default     = "10"
+}
+
 # Configuración del proveedor AWS
 provider "aws" {
   region = var.aws_region
@@ -66,19 +78,39 @@ provider "aws" {
   }
 }
 
-# Obtener la AMI más reciente de Ubuntu
+# Obtener la AMI más reciente de Ubuntu 24.04 (Noble)
 data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["099720109477"] # Canonical
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-22.04-amd64-server-*"]
+    values = ["ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-server-*"]
   }
-
+  
   filter {
     name   = "virtualization-type"
     values = ["hvm"]
+  }
+  
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
+  
+  filter {
+    name   = "architecture"
+    values = ["arm64"]
+  }
+  
+  filter {
+    name   = "state"
+    values = ["available"]
+  }
+  
+  filter {
+    name   = "image-type"
+    values = ["machine"]
   }
 }
 
@@ -258,23 +290,16 @@ resource "aws_sns_topic" "alerts" {
 resource "aws_budgets_budget" "cactus_dashboard" {
   name         = "${var.project_name}-monthly-budget"
   budget_type  = "COST"
-  limit_amount = "10"  # $10 USD
+  limit_amount = var.monthly_budget_limit
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
-  
-  cost_filters {
-    tag {
-      key    = "Project"
-      values = [var.project_name]
-    }
-  }
 
   notification {
     comparison_operator        = "GREATER_THAN"
     threshold                 = 80
     threshold_type            = "PERCENTAGE"
     notification_type         = "ACTUAL"
-    subscriber_email_addresses = ["admin@example.com"]  # Cambiar por tu email
+    subscriber_email_addresses = [var.alert_email]
   }
 
   notification {
@@ -282,7 +307,7 @@ resource "aws_budgets_budget" "cactus_dashboard" {
     threshold                 = 100
     threshold_type            = "PERCENTAGE"
     notification_type          = "FORECASTED"
-    subscriber_email_addresses = ["admin@example.com"]  # Cambiar por tu email
+    subscriber_email_addresses = [var.alert_email]
   }
 }
 

@@ -37,7 +37,6 @@ COPY ./cactus-wealth-backend/entrypoint.sh ./entrypoint.sh
 COPY ./cactus-wealth-backend/entrypoint_worker.sh ./entrypoint_worker.sh
 COPY ./cactus-wealth-backend/alembic.ini ./alembic.ini
 COPY ./cactus-wealth-backend/alembic ./alembic
-COPY cactuscrm ./cactuscrm
 
 RUN chmod +x ./entrypoint.sh ./entrypoint_worker.sh && \
     chown -R appuser:appgroup /app

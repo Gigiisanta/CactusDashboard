@@ -6,7 +6,6 @@ from cactus_wealth.api.v1.endpoints import (
     health,
     insurance_policies,
     investment_accounts,
-    login,
     model_portfolios,
     notifications,
     portfolios,
@@ -14,6 +13,7 @@ from cactus_wealth.api.v1.endpoints import (
     users,
     websockets,
 )
+from cactus_wealth.api.v1.endpoints.auth import auth_router
 from fastapi import APIRouter
 
 api_router = APIRouter()
@@ -21,7 +21,7 @@ api_router.include_router(health.router, tags=["health"])
 api_router.include_router(
     automations.router, prefix="/automations", tags=["automations"]
 )
-api_router.include_router(login.router, prefix="/login", tags=["login"])
+api_router.include_router(auth_router, prefix="/auth", tags=["authentication"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(clients.router, prefix="/clients", tags=["clients"])
 api_router.include_router(portfolios.router, prefix="/portfolios", tags=["portfolios"])

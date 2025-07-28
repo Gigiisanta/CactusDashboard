@@ -8,7 +8,7 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
-from cactus_wealth import crud
+from cactus_wealth import test_utils
 from cactus_wealth.models import Client, InsurancePolicy, InvestmentAccount
 from cactus_wealth.schemas import InsurancePolicyCreate, InvestmentAccountCreate
 from sqlmodel import Session
@@ -182,7 +182,7 @@ def test_delete_client_with_related_accounts_and_policies(
     investment_account_data = InvestmentAccountCreate(
         platform="Test Platform", account_number="TEST001", aum=Decimal("10000.00"), client_id=test_client_db.id
     )
-    investment_account = crud.create_client_investment_account(
+    investment_account = test_utils.create_client_investment_account(
         session=session, account_data=investment_account_data, client_id=test_client_db.id
     )
 
@@ -194,7 +194,7 @@ def test_delete_client_with_related_accounts_and_policies(
         coverage_amount=Decimal("100000.00"),
         client_id=test_client_db.id,  # This will be ignored by the crud function
     )
-    insurance_policy = crud.create_client_insurance_policy(
+    insurance_policy = test_utils.create_client_insurance_policy(
         session=session, policy_data=insurance_policy_data, client_id=test_client_db.id
     )
 
@@ -203,7 +203,7 @@ def test_delete_client_with_related_accounts_and_policies(
     assert session.get(InsurancePolicy, insurance_policy.id) is not None
 
     # Delete the client
-    deleted_client = crud.remove_client(
+    deleted_client = test_utils.remove_client(
         session=session, client_id=test_client_db.id, owner_id=test_user.id
     )
 
@@ -218,7 +218,7 @@ def test_delete_client_with_related_accounts_and_policies(
 
 def test_delete_nonexistent_client(session: Session, test_user):
     """Test that deleting a nonexistent client returns None."""
-    result = crud.remove_client(session=session, client_id=99999, owner_id=test_user.id)
+    result = test_utils.remove_client(session=session, client_id=99999, owner_id=test_user.id)
     assert result is None
 
 
@@ -226,7 +226,7 @@ def test_delete_client_wrong_owner(
     session: Session, test_user, test_client_db, another_user
 ):
     """Test that deleting a client with wrong owner returns None."""
-    result = crud.remove_client(
+    result = test_utils.remove_client(
         session=session, client_id=test_client_db.id, owner_id=another_user.id
     )
     assert result is None

@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
 
-import cactus_wealth.crud as crud
 from cactus_wealth.core.config import settings
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User
+from cactus_wealth.repositories import UserRepository
 from cactus_wealth.schemas import TokenData
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -50,7 +50,8 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 def authenticate_user(session: Session, username: str, password: str) -> User | None:
     """Authenticate a user with username and password."""
-    user = crud.get_user_by_username(session=session, username=username)
+    user_repo = UserRepository(session)
+    user = user_repo.get_user_by_username(username=username)
     if not user:
         return None
     if not verify_password(password, user.hashed_password):
@@ -77,7 +78,8 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    user = crud.get_user_by_email(session=session, email=token_data.email)
+    user_repo = UserRepository(session)
+    user = user_repo.get_user_by_email(email=token_data.email)
     if user is None:
         raise credentials_exception
 
@@ -127,7 +129,8 @@ async def get_current_user_from_token(token: str) -> User:
 
     session = Session(get_engine(), autoflush=True, autocommit=False)
     try:
-        user = crud.get_user_by_email(session=session, email=token_data.email)
+        user_repo = UserRepository(session)
+        user = user_repo.get_user_by_email(email=token_data.email)
         if user is None:
             raise credentials_exception
 

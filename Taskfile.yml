@@ -1,0 +1,158 @@
+version: '3'
+
+tasks:
+  test:all:
+    desc: Run all tests
+    cmds:
+      - echo "Running all tests"
+      - scripts/cactus.sh test:all
+
+  test:backend:
+    desc: Run backend tests
+    cmds:
+      - echo "Running backend tests"
+      - scripts/cactus.sh test:backend
+
+  test:frontend:
+    desc: Run frontend tests
+    cmds:
+      - echo "Running frontend tests"
+      - scripts/cactus.sh test:frontend
+
+  test:oauth:
+    desc: Run OAuth tests
+    cmds:
+      - echo "Running OAuth tests"
+      - scripts/cactus.sh oauth:test
+
+  test:integration:
+    desc: Run integration tests
+    cmds:
+      - echo "Running integration tests"
+      - scripts/cactus.sh test:integration
+
+  setup:dev:
+    desc: Setup development environment
+    cmds:
+      - echo "Setting up development environment"
+      - scripts/cactus.sh setup:dev
+
+  setup:backend:
+    desc: Setup backend
+    cmds:
+      - echo "Setting up backend"
+      - scripts/cactus.sh setup:backend
+
+  setup:frontend:
+    desc: Setup frontend
+    cmds:
+      - echo "Setting up frontend"
+      - scripts/cactus.sh setup:frontend
+
+  setup:oauth:
+    desc: Setup OAuth
+    cmds:
+      - echo "Setting up OAuth"
+      - scripts/cactus.sh oauth:setup
+
+  docker:up:
+    desc: Start Docker services
+    cmds:
+      - echo "Starting Docker services"
+      - scripts/cactus.sh docker:up
+
+  docker:down:
+    desc: Stop Docker services
+    cmds:
+      - echo "Stopping Docker services"
+      - scripts/cactus.sh docker:down
+
+  docker:restart:
+    desc: Restart Docker services
+    cmds:
+      - echo "Restarting Docker services"
+      - scripts/cactus.sh docker:restart
+
+  docker:logs:
+    desc: Show Docker logs
+    cmds:
+      - echo "Showing Docker logs"
+      - scripts/cactus.sh docker:logs
+
+  debug:oauth:
+    desc: Debug OAuth
+    cmds:
+      - echo "Debugging OAuth"
+      - scripts/cactus.sh oauth:debug
+
+  debug:health:
+    desc: Health check
+    cmds:
+      - echo "Checking health"
+      - scripts/cactus.sh debug:health
+
+  debug:ports:
+    desc: Clean port conflicts
+    cmds:
+      - echo "Cleaning port conflicts"
+      - scripts/cactus.sh debug:ports
+
+  debug:status:
+    desc: Show service status
+    cmds:
+      - echo "Showing service status"
+      - scripts/cactus.sh debug:status
+
+  deploy:aws:
+    desc: Deploy to AWS
+    cmds:
+      - echo "Deploying to AWS"
+      - scripts/cactus.sh deploy:aws
+
+  deploy:local:
+    desc: Deploy locally
+    cmds:
+      - echo "Deploying locally"
+      - scripts/cactus.sh deploy:local
+
+  clean:all:
+    desc: Clean all temporary files
+    cmds:
+      - echo "Cleaning all"
+      - scripts/cactus.sh clean:all
+
+  status:
+    desc: Show status
+    cmds:
+      - echo "Showing status"
+      - scripts/cactus.sh debug:status
+
+  help:
+    desc: Show help
+    cmds:
+      - echo "Showing help"
+      - scripts/cactus.sh help
+
+  github:setup:
+    desc: Setup GitHub repository configuration
+    cmds:
+      - echo "Setting up GitHub repository configuration"
+      - scripts/cactus.sh github:setup
+
+  github:update:
+    desc: Update GitHub repository URL in configuration
+    cmds:
+      - echo "Updating GitHub repository URL"
+      - scripts/cactus.sh github:update
+
+  github:deploy:
+    desc: Deploy to GitHub and then to AWS
+    cmds:
+      - echo "Deploying to GitHub and AWS"
+      - scripts/cactus.sh github:deploy
+
+  github:sync:
+    desc: Sync local changes with GitHub repository
+    cmds:
+      - echo "Syncing with GitHub repository"
+      - scripts/cactus.sh github:sync 

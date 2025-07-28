@@ -9,7 +9,7 @@ from cactus_wealth.schemas import (
     BacktestResponse,
     PortfolioComposition,
 )
-from cactus_wealth.services import PortfolioBacktestService
+import cactus_wealth.services as services
 
 
 class TestPortfolioBacktestService:
@@ -18,7 +18,7 @@ class TestPortfolioBacktestService:
     @pytest.fixture
     def backtest_service(self):
         """Create PortfolioBacktestService instance."""
-        return PortfolioBacktestService()
+        return services.PortfolioBacktestService()
 
     @pytest.fixture
     def sample_historical_data(self):

@@ -1,8 +1,8 @@
 from decimal import Decimal
 
-import cactus_wealth.crud as crud
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User
+from cactus_wealth.repositories import ModelPortfolioRepository
 from cactus_wealth.schemas import (
     ModelPortfolioCreate,
     ModelPortfolioPositionCreate,
@@ -29,7 +29,8 @@ def get_model_portfolios(
     """
     Get all model portfolios with their positions.
     """
-    portfolios = crud.get_model_portfolios(session=session, skip=skip, limit=limit)
+    portfolio_repo = ModelPortfolioRepository(session)
+    portfolios = portfolio_repo.get_model_portfolios(skip=skip, limit=limit)
     return [ModelPortfolioRead.model_validate(portfolio) for portfolio in portfolios]
 
 
@@ -45,9 +46,8 @@ def create_model_portfolio(
     Create a new model portfolio (initially empty of assets).
     """
     try:
-        portfolio = crud.create_model_portfolio(
-            session=session, portfolio_data=portfolio_create
-        )
+        portfolio_repo = ModelPortfolioRepository(session)
+        portfolio = portfolio_repo.create_model_portfolio(portfolio_data=portfolio_create)
         return ModelPortfolioRead.model_validate(portfolio)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -62,7 +62,8 @@ def get_model_portfolio(
     """
     Get details of a specific model portfolio, including its positions.
     """
-    portfolio = crud.get_model_portfolio(session=session, portfolio_id=portfolio_id)
+    portfolio_repo = ModelPortfolioRepository(session)
+    portfolio = portfolio_repo.get_model_portfolio(portfolio_id=portfolio_id)
     if not portfolio:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Model portfolio not found"
@@ -81,8 +82,8 @@ def update_model_portfolio(
     Update a model portfolio's basic information.
     """
     try:
-        portfolio = crud.update_model_portfolio(
-            session=session,
+        portfolio_repo = ModelPortfolioRepository(session)
+        portfolio = portfolio_repo.update_model_portfolio(
             portfolio_id=portfolio_id,
             portfolio_update=portfolio_update,
         )
@@ -105,7 +106,8 @@ def delete_model_portfolio(
     """
     Delete a model portfolio and all its positions.
     """
-    portfolio = crud.delete_model_portfolio(session=session, portfolio_id=portfolio_id)
+    portfolio_repo = ModelPortfolioRepository(session)
+    portfolio = portfolio_repo.delete_model_portfolio(portfolio_id=portfolio_id)
     if not portfolio:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Model portfolio not found"
@@ -128,9 +130,10 @@ def add_portfolio_position(
     Add a new asset and its weight to a model portfolio.
     """
     try:
+        portfolio_repo = ModelPortfolioRepository(session)
         # Check if adding this position would exceed 100% weight
-        current_total = crud.get_model_portfolio_total_weight(
-            session=session, portfolio_id=portfolio_id
+        current_total = portfolio_repo.get_model_portfolio_total_weight(
+            portfolio_id=portfolio_id
         )
         new_total = current_total + float(position_create.weight)
 
@@ -139,8 +142,8 @@ def add_portfolio_position(
                 f"Adding this position would exceed 100% allocation. Current total: {current_total:.2%}, New total would be: {new_total:.2%}"
             )
 
-        position = crud.create_model_portfolio_position(
-            session=session, position_data=position_create, portfolio_id=portfolio_id
+        position = portfolio_repo.create_model_portfolio_position(
+            position_data=position_create, portfolio_id=portfolio_id
         )
         return ModelPortfolioPositionRead.model_validate(position)
     except ValueError as e:
@@ -161,10 +164,11 @@ def update_portfolio_position(
     Update the weight of an asset in a model portfolio.
     """
     try:
+        portfolio_repo = ModelPortfolioRepository(session)
         # If weight is being updated, check total allocation
         if position_update.weight is not None:
-            current_total = crud.get_model_portfolio_total_weight(
-                session=session, portfolio_id=portfolio_id
+            current_total = portfolio_repo.get_model_portfolio_total_weight(
+                portfolio_id=portfolio_id
             )
 
             # Get current position to subtract its current weight
@@ -188,8 +192,8 @@ def update_portfolio_position(
                     f"Updating this position would exceed 100% allocation. New total would be: {new_total:.2%}"
                 )
 
-        position = crud.update_model_portfolio_position(
-            session=session, position_id=position_id, position_update=position_update
+        position = portfolio_repo.update_model_portfolio_position(
+            position_id=position_id, position_update=position_update
         )
         if not position:
             raise HTTPException(
@@ -212,9 +216,8 @@ def delete_portfolio_position(
     """
     Remove an asset from a model portfolio.
     """
-    position = crud.delete_model_portfolio_position(
-        session=session, position_id=position_id
-    )
+    portfolio_repo = ModelPortfolioRepository(session)
+    position = portfolio_repo.delete_model_portfolio_position(position_id=position_id)
     if not position:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Position not found"
@@ -233,15 +236,16 @@ def validate_portfolio_weights(
     """
     Validate the total weight allocation of a model portfolio.
     """
+    portfolio_repo = ModelPortfolioRepository(session)
     # Verify portfolio exists
-    portfolio = crud.get_model_portfolio(session=session, portfolio_id=portfolio_id)
+    portfolio = portfolio_repo.get_model_portfolio(portfolio_id=portfolio_id)
     if not portfolio:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Model portfolio not found"
         )
 
-    total_weight = crud.get_model_portfolio_total_weight(
-        session=session, portfolio_id=portfolio_id
+    total_weight = portfolio_repo.get_model_portfolio_total_weight(
+        portfolio_id=portfolio_id
     )
     is_valid = total_weight <= 1.0
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Generator, Callable, Any
+from typing import Generator, Callable, Any, Optional, List, Dict
 
 from cactus_wealth.models import (
     ActivityType,
@@ -20,6 +20,12 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     role: UserRole
+
+
+class UserUpdate(BaseModel):
+    """Schema for updating user data."""
+
+    username: str | None = None
 
 
 class ClientCreate(BaseModel):
@@ -88,12 +94,55 @@ class UserRead(BaseModel):
     email: str
     is_active: bool
     role: UserRole
+    manager_id: int | None = None
+    google_id: str | None = None
+    auth_provider: str
     created_at: datetime
     updated_at: datetime
     clients: list[ClientRead] = []
 
     class Config:
         from_attributes = True
+
+
+class UserWithStats(BaseModel):
+    """Schema for user data with statistics."""
+
+    id: int
+    username: str
+    email: str
+    role: UserRole
+    manager_id: int | None = None
+    n_clients: int
+    n_prospects: int
+    aum_total: float
+
+    class Config:
+        from_attributes = True
+
+
+class DashboardMetrics(BaseModel):
+    """Schema for dashboard metrics."""
+
+    n_clients: int
+    n_prospects: int
+    aum_total: float
+    advisors: list[UserWithStats] = []
+
+    class Config:
+        from_attributes = True
+
+
+class LinkAdvisorRequest(BaseModel):
+    """Schema for linking advisor to manager."""
+
+    advisor_id: int
+
+
+class UnlinkAdvisorRequest(BaseModel):
+    """Schema for unlinking advisor from manager."""
+
+    advisor_id: int
 
 
 class Token(BaseModel):
@@ -535,3 +584,128 @@ class ClientNoteRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Google Auth Schemas
+class GoogleUser(BaseModel):
+    """Schema for Google user information."""
+
+    id: str
+    email: str
+    name: str
+    picture: str
+
+
+class GoogleAuthResponse(BaseModel):
+    """Schema for Google authentication response."""
+
+    access_token: str
+    user: GoogleUser
+
+
+# ============ WEBAUTHN/PASSKEY SCHEMAS ============
+
+
+class CredentialCreate(BaseModel):
+    """Schema for creating a WebAuthn credential."""
+
+    credential_id: str
+    public_key: bytes
+    sign_count: int
+    transports: Optional[List[str]] = None
+    aaguid: Optional[str] = None
+    backup_eligible: bool = False
+    backup_state: bool = False
+    device_type: Optional[str] = None
+
+
+class CredentialRead(BaseModel):
+    """Schema for reading WebAuthn credential data."""
+
+    id: int
+    user_id: int
+    credential_id: str
+    sign_count: int
+    transports: Optional[List[str]] = None
+    aaguid: Optional[str] = None
+    backup_eligible: bool
+    backup_state: bool
+    device_type: Optional[str] = None
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CredentialAuthenticate(BaseModel):
+    """Schema for WebAuthn authentication response."""
+
+    credential_id: str
+    authenticator_data: str
+    client_data_json: str
+    signature: str
+    user_handle: Optional[str] = None
+
+
+class RegistrationOptionsRequest(BaseModel):
+    """Schema for registration options request."""
+
+    username: Optional[str] = None
+    display_name: Optional[str] = None
+
+
+class RegistrationOptionsResponse(BaseModel):
+    """Schema for registration options response."""
+
+    challenge: str
+    rp: Dict[str, Any]
+    user: Dict[str, Any]
+    pub_key_cred_params: List[Dict[str, Any]]
+    timeout: int
+    exclude_credentials: List[Dict[str, Any]]
+    authenticator_selection: Dict[str, Any]
+    attestation: str
+
+
+class RegistrationVerificationRequest(BaseModel):
+    """Schema for registration verification request."""
+
+    credential_id: str
+    attestation_object: str
+    client_data_json: str
+    transports: Optional[List[str]] = None
+
+
+class AuthenticationOptionsRequest(BaseModel):
+    """Schema for authentication options request."""
+
+    username: Optional[str] = None
+
+
+class AuthenticationOptionsResponse(BaseModel):
+    """Schema for authentication options response."""
+
+    challenge: str
+    timeout: int
+    rp_id: str
+    allow_credentials: List[Dict[str, Any]]
+    user_verification: str
+
+
+class AuthenticationVerificationRequest(BaseModel):
+    """Schema for authentication verification request."""
+
+    credential_id: str
+    authenticator_data: str
+    client_data_json: str
+    signature: str
+    user_handle: Optional[str] = None
+
+
+class PasskeyLoginResponse(BaseModel):
+    """Schema for successful passkey login response."""
+
+    access_token: str
+    token_type: str
+    user: Dict[str, Any]

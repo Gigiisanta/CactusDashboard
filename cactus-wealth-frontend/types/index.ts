@@ -5,6 +5,7 @@ export interface User {
   email: string;
   is_active: boolean;
   role: UserRole;
+  manager_id?: number;
   created_at: string;
   updated_at: string;
   clients: Client[];
@@ -17,8 +18,40 @@ export interface UserCreate {
   role: UserRole;
 }
 
+export interface UserWithStats {
+  id: number;
+  username: string;
+  email: string;
+  is_active: boolean;
+  role: UserRole;
+  manager_id?: number;
+  created_at: string;
+  updated_at: string;
+  n_clients: number;
+  n_prospects: number;
+  aum_total: number;
+}
+
+export interface DashboardMetrics {
+  n_clients: number;
+  n_prospects: number;
+  aum_total: number;
+  advisors: UserWithStats[];
+}
+
+export interface LinkAdvisorRequest {
+  advisor_id: number;
+}
+
+export interface UnlinkAdvisorRequest {
+  advisor_id: number;
+}
+
 export enum UserRole {
+  GOD = 'GOD',
   ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
+  ADVISOR = 'ADVISOR',
   SENIOR_ADVISOR = 'SENIOR_ADVISOR',
   JUNIOR_ADVISOR = 'JUNIOR_ADVISOR',
 }

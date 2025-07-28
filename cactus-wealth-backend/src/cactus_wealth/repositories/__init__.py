@@ -11,6 +11,12 @@ from .client_repository import ClientRepository
 from .notification_repository import NotificationRepository
 from .portfolio_repository import PortfolioRepository
 from .user_repository import UserRepository
+from .model_portfolio_repository import ModelPortfolioRepository
+from .report_repository import ReportRepository
+from .activity_repository import ActivityRepository
+from .note_repository import NoteRepository
+from .investment_account_repository import InvestmentAccountRepository
+from .insurance_policy_repository import InsurancePolicyRepository
 
 __all__ = [
     "BaseRepository",
@@ -19,4 +25,10 @@ __all__ = [
     "AssetRepository",
     "UserRepository",
     "NotificationRepository",
+    "ModelPortfolioRepository",
+    "ReportRepository",
+    "ActivityRepository",
+    "NoteRepository",
+    "InvestmentAccountRepository",
+    "InsurancePolicyRepository",
 ]

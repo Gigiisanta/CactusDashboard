@@ -3,6 +3,9 @@
 import { Suspense, lazy } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DashboardMetricsCard } from '@/components/dashboard/DashboardMetricsCard';
+import { AdvisorManagement } from '@/components/dashboard/AdvisorManagement';
+import { useAuth } from '@/stores/auth.store';
 
 // Lazy load heavy components
 const DashboardKPIs = lazy(() => import('./components/DashboardKPIs'));
@@ -64,19 +67,35 @@ const DashboardActionsSkeleton = () => (
 );
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const isManagerOrAdvisor = user?.role === 'MANAGER' || user?.role === 'ADVISOR';
+
   return (
     <div className='space-y-6'>
       <div>
         <h1 className='text-3xl font-bold text-slate-900'>Dashboard</h1>
         <p className='text-slate-600'>
-          Resumen de tu cartera de clientes y métricas clave
+          {isManagerOrAdvisor 
+            ? `Resumen de ${user?.role === 'MANAGER' ? 'tu equipo' : 'tu cartera'} y métricas clave`
+            : 'Resumen de tu cartera de clientes y métricas clave'
+          }
         </p>
       </div>
 
-      {/* KPIs con lazy loading */}
-      <Suspense fallback={<DashboardKPIsSkeleton />}>
-        <DashboardKPIs />
-      </Suspense>
+      {/* Métricas específicas para Manager/Advisor */}
+      {isManagerOrAdvisor ? (
+        <DashboardMetricsCard />
+      ) : (
+        /* KPIs tradicionales con lazy loading */
+        <Suspense fallback={<DashboardKPIsSkeleton />}>
+          <DashboardKPIs />
+        </Suspense>
+      )}
+
+      {/* Gestión de asesores para managers */}
+      {user?.role === 'MANAGER' && (
+        <AdvisorManagement />
+      )}
 
       <div className='grid grid-cols-1 gap-6 lg:grid-cols-2'>
         {/* Recent Activity con lazy loading */}

@@ -32,18 +32,30 @@ jest.mock('@/lib/token-utils', () => ({
   isTokenExpired: jest.fn(() => false),
 }));
 
-const { apiClientInterceptor, createTestApiClientInterceptor } = require('@/lib/apiClient');
-
 describe('ApiClientInterceptor', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Clear module cache to ensure fresh imports
+    jest.resetModules();
   });
 
   it('creates axios instance', () => {
-    // Import after mocking
+    // Clear any previous calls
+    mockAxios.create.mockClear();
+    
+    // Import after mocking - this will create the singleton instance
     require('@/lib/apiClient');
 
-    expect(mockAxios.create).toHaveBeenCalled();
+    expect(mockAxios.create).toHaveBeenCalledWith({
+      baseURL: 'http://localhost:8000',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=300',
+        Pragma: 'cache',
+      },
+      timeout: 15000,
+      validateStatus: expect.any(Function),
+    });
   });
 
   it('returns axios client instance', () => {

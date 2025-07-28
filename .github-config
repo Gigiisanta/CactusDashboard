@@ -1,0 +1,11 @@
+# GitHub Repository Configuration
+GITHUB_REPO_URL=https://github.com/Gigiisanta/CactusDashboard.git
+GITHUB_REPO_NAME=Gigiisanta/CactusDashboard
+GITHUB_USER=Gigiisanta
+GITHUB_PROJECT=CactusDashboard
+
+# AWS Deployment Configuration
+AWS_INSTANCE_IP=18.233.216.44
+AWS_INSTANCE_ID=i-05f750c79249bdb5e
+
+# Last updated: Mon Jul 28 11:22:46 -03 2025

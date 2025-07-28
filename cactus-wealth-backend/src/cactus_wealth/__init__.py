@@ -3,6 +3,12 @@
 import logging
 
 try:
+    # Import services module to make it available
+    from . import services
+except Exception as e:
+    logging.warning(f"services import failed: {e}")
+
+try:
     pass
 except Exception as e:
     logging.warning(f"client_event_bus import failed: {e}")

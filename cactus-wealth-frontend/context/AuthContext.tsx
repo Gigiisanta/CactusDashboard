@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { apiClient } from '@/lib/api';
 import { UserRole, User } from '@/types';
 import { isTokenExpired, getTokenTimeRemaining } from '@/lib/token-utils';
+import { googleAuthService, GoogleAuthResponse } from '@/services/google-auth.service';
 
 export function AuthProvider({
   children,
@@ -183,6 +184,108 @@ export function AuthProvider({
     };
   }, [zustandLogout, router]);
 
+  const loginWithGoogle = async (idToken: string) => {
+    try {
+      setIsLoading(true);
+      const response: GoogleAuthResponse = await googleAuthService.verifyToken(idToken);
+
+      const { access_token, user: googleUser } = response;
+
+      // Validate new token before storing
+      if (isTokenExpired(access_token, 0)) {
+        throw new Error('Received expired token from server');
+      }
+
+      const user: User = {
+        id: parseInt(googleUser.id),
+        username: googleUser.email,
+        email: googleUser.email,
+        is_active: true,
+        role: UserRole.JUNIOR_ADVISOR,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        clients: [],
+      };
+
+      zustandLogin(user, access_token);
+
+      console.log(
+        `✅ Google login successful, token expires in ${getTokenTimeRemaining(access_token)} minutes`
+      );
+
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Google login error:', error);
+      throw new Error(error?.message || 'Google login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loginWithGoogleCode = async (code: string) => {
+    try {
+      setIsLoading(true);
+      const response: GoogleAuthResponse = await googleAuthService.exchangeCodeForToken(code);
+
+      const { access_token, user: googleUser } = response;
+
+      // Validate new token before storing
+      if (isTokenExpired(access_token, 0)) {
+        throw new Error('Received expired token from server');
+      }
+
+      const user: User = {
+        id: parseInt(googleUser.id),
+        username: googleUser.email,
+        email: googleUser.email,
+        is_active: true,
+        role: UserRole.JUNIOR_ADVISOR,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        clients: [],
+      };
+
+      zustandLogin(user, access_token);
+
+      console.log(
+        `✅ Google login successful, token expires in ${getTokenTimeRemaining(access_token)} minutes`
+      );
+
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Google login error:', error);
+      throw new Error(error?.message || 'Google login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initialize Google Sign-In when component mounts
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      googleAuthService.initializeGoogleSignIn().catch(console.error);
+
+      // Listen for Google auth events
+      const handleGoogleAuthSuccess = (event: CustomEvent) => {
+        const response = event.detail as GoogleAuthResponse;
+        loginWithGoogle(response.access_token).catch(console.error);
+      };
+
+      const handleGoogleAuthError = (event: CustomEvent) => {
+        console.error('Google auth error:', event.detail);
+        setIsLoading(false);
+      };
+
+      window.addEventListener('googleAuthSuccess', handleGoogleAuthSuccess as EventListener);
+      window.addEventListener('googleAuthError', handleGoogleAuthError as EventListener);
+
+      return () => {
+        window.removeEventListener('googleAuthSuccess', handleGoogleAuthSuccess as EventListener);
+        window.removeEventListener('googleAuthError', handleGoogleAuthError as EventListener);
+      };
+    }
+  }, []);
+
   const login = async (username: string, password: string) => {
     try {
       setIsLoading(true);
@@ -241,6 +344,10 @@ export function AuthProvider({
 
   const logout = async () => {
     console.log('🔒 Manual logout initiated');
+    
+    // Sign out from Google
+    googleAuthService.signOut();
+    
     handleAutoLogout();
   };
 
@@ -248,6 +355,8 @@ export function AuthProvider({
     <AuthContext.Provider
       value={{
         login,
+        loginWithGoogle,
+        loginWithGoogleCode,
         register,
         logout,
         user: useAuthStore((state) => state.user),
@@ -263,6 +372,8 @@ export function AuthProvider({
 
 const AuthContext = React.createContext<{
   login: (username: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
+  loginWithGoogleCode: (code: string) => Promise<void>;
   register: (
     username: string,
     email: string,

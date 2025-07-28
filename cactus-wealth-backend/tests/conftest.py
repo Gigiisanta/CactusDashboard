@@ -152,7 +152,7 @@ def test_user_credentials():
 
 @pytest.fixture(scope="function")
 def test_admin(session):
-    from cactus_wealth.crud import create_user
+    from cactus_wealth.test_utils import create_user
     from cactus_wealth.models import UserRole
     from cactus_wealth.schemas import UserCreate
 
@@ -167,7 +167,7 @@ def test_admin(session):
 
 @pytest.fixture(scope="function")
 def test_user(session):
-    from cactus_wealth.crud import create_user
+    from cactus_wealth.test_utils import create_user
     from cactus_wealth.models import UserRole
     from cactus_wealth.schemas import UserCreate
 
@@ -182,7 +182,7 @@ def test_user(session):
 
 @pytest.fixture(scope="function")
 def another_user(session):
-    from cactus_wealth.crud import create_user
+    from cactus_wealth.test_utils import create_user
     from cactus_wealth.models import UserRole
     from cactus_wealth.schemas import UserCreate
 
@@ -197,7 +197,7 @@ def another_user(session):
 
 @pytest.fixture(scope="function")
 def test_client_db(session, test_user):
-    from cactus_wealth.crud import create_client
+    from cactus_wealth.test_utils import create_client
     from cactus_wealth.models import RiskProfile
     from cactus_wealth.schemas import ClientCreate
 

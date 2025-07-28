@@ -2,7 +2,7 @@ import structlog
 from sqlmodel import Session
 from cactus_wealth.database import engine
 from cactus_wealth.repositories import ClientRepository
-from cactus_wealth.services import PortfolioService
+from cactus_wealth import services
 from cactus_wealth.core.dataprovider import MarketDataProvider
 
 logger = structlog.get_logger(__name__)
@@ -16,7 +16,7 @@ async def create_all_snapshots():
     logger.info("Starting create_all_snapshots ARQ job")
     with next(get_db_session()) as db_session:
         client_repo = ClientRepository(db_session)
-        portfolio_service = PortfolioService(db_session, MarketDataProvider())
+        portfolio_service = services.PortfolioService(db_session, MarketDataProvider())
 
         all_clients = client_repo.get_all()
         logger.info(f"Found {len(all_clients)} clients to process.")

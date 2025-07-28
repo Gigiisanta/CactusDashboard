@@ -5,7 +5,7 @@
  * Components should use this service instead of direct apiClient calls.
  */
 
-import { DashboardSummaryResponse } from '@/types';
+import { DashboardSummaryResponse, DashboardMetrics } from '@/types';
 import { apiClient } from '@/lib/api';
 
 // 🚀 INSIGHT ANALYTICS: Type for AUM history data points
@@ -20,6 +20,13 @@ export class DashboardService {
    */
   static async getDashboardSummary(): Promise<DashboardSummaryResponse> {
     return apiClient.getDashboardSummary();
+  }
+
+  /**
+   * Get dashboard metrics for Manager-Advisor hierarchy
+   */
+  static async getDashboardMetrics(): Promise<DashboardMetrics> {
+    return apiClient.getDashboardMetrics();
   }
 
   /**

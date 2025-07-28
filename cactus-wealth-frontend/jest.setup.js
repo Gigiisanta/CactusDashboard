@@ -89,6 +89,9 @@ Object.defineProperty(window, 'scrollTo', {
   value: jest.fn(),
 });
 
+// Mock scrollIntoView
+Element.prototype.scrollIntoView = jest.fn();
+
 // Mock localStorage
 const localStorageMock = {
   getItem: jest.fn(),
