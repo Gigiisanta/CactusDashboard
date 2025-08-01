@@ -1,18 +1,16 @@
 'use client';
 import { ReactNode } from 'react';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
-import { AuthProvider } from '@/context/AuthContext';
-import { TokenExpiryWarning } from '@/components/layout/TokenExpiryWarning';
 import { Toaster } from '@/components/ui/sonner';
+import { NextAuthProvider } from '@/components/auth/NextAuthProvider';
 
 export function ClientRoot({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <TokenExpiryWarning />
+      <NextAuthProvider>
         {children}
         <Toaster />
-      </AuthProvider>
+      </NextAuthProvider>
     </ErrorBoundary>
   );
 }

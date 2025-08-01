@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { apiClientInterceptor } from '@/lib/apiClient';
-import { useAuthStore } from '@/stores/auth.store';
+import { useSession } from 'next-auth/react';
 
 interface ClientNote {
   id: number;
@@ -39,7 +39,8 @@ export function ClientNotesSection({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<ClientNote | null>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
-  const { isAuthenticated } = useAuthStore();
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === 'authenticated';
 
   const fetchNotes = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -217,22 +218,29 @@ export function ClientNotesSection({
             </TableBody>
           </Table>
         )}
+
+        {/* Add Note Modal */}
+        {isAddModalOpen && (
+          <NoteDialog
+            open={isAddModalOpen}
+            onOpenChange={setIsAddModalOpen}
+            onSubmit={handleAddNote}
+          />
+        )}
+
+        {/* Edit Note Modal */}
+        {editingNote && (
+          <NoteDialog
+            open={!!editingNote}
+            onOpenChange={(open) => !open && setEditingNote(null)}
+            onSubmit={(data) => handleEditNote(editingNote.id, data)}
+            initialData={{
+              title: editingNote.title,
+              content: editingNote.content,
+            }}
+          />
+        )}
       </CardContent>
-      {isAuthenticated && isAddModalOpen && (
-        <NoteDialog
-          open={isAddModalOpen}
-          onOpenChange={setIsAddModalOpen}
-          onSubmit={handleAddNote}
-        />
-      )}
-      {isAuthenticated && editingNote && (
-        <NoteDialog
-          open={!!editingNote}
-          onOpenChange={() => setEditingNote(null)}
-          initialData={editingNote}
-          onSubmit={(data) => handleEditNote(editingNote.id, data)}
-        />
-      )}
     </Card>
   );
 }
@@ -250,42 +258,21 @@ function NoteDialog({
   onSubmit,
   initialData,
 }: NoteDialogProps) {
-  const [formData, setFormData] = useState({
-    title: initialData?.title || '',
-    content: initialData?.content || '',
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [content, setContent] = useState(initialData?.content || '');
 
-  useEffect(() => {
-    setFormData({
-      title: initialData?.title || '',
-      content: initialData?.content || '',
-    });
-  }, [initialData]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title.trim()) {
-      toast.error('El título es requerido');
+    if (!title.trim() || !content.trim()) {
+      toast.error('Título y contenido son requeridos');
       return;
     }
-    if (!formData.content.trim()) {
-      toast.error('El contenido es requerido');
-      return;
-    }
-    try {
-      setIsSubmitting(true);
-      await onSubmit({
-        title: formData.title.trim(),
-        content: formData.content.trim(),
-      });
-      onOpenChange(false);
-    } catch (error) {
-      toast.error('Error al guardar la nota');
-    } finally {
-      setIsSubmitting(false);
-    }
+    onSubmit({ title: title.trim(), content: content.trim() });
+    setTitle('');
+    setContent('');
   };
+
+  if (!open) return null;
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/30'>
@@ -298,42 +285,33 @@ function NoteDialog({
         </h2>
         <div className='mb-4'>
           <input
-            className='w-full rounded border border-slate-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none'
-            placeholder='Título'
-            value={formData.title}
-            onChange={(e) =>
-              setFormData((f) => ({ ...f, title: e.target.value }))
-            }
-            disabled={isSubmitting}
-            maxLength={200}
+            type='text'
+            placeholder='Título de la nota'
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className='w-full rounded border p-2'
             required
           />
         </div>
         <div className='mb-4'>
           <textarea
-            className='w-full rounded border border-slate-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none'
-            placeholder='Contenido'
-            value={formData.content}
-            onChange={(e) =>
-              setFormData((f) => ({ ...f, content: e.target.value }))
-            }
-            rows={5}
-            maxLength={5000}
-            disabled={isSubmitting}
+            placeholder='Contenido de la nota'
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className='h-32 w-full rounded border p-2'
             required
           />
         </div>
-        <div className='flex justify-end gap-2'>
+        <div className='flex justify-end space-x-2'>
           <Button
             type='button'
             variant='outline'
             onClick={() => onOpenChange(false)}
-            disabled={isSubmitting}
           >
             Cancelar
           </Button>
-          <Button type='submit' disabled={isSubmitting}>
-            {isSubmitting ? 'Guardando...' : 'Guardar'}
+          <Button type='submit'>
+            {initialData ? 'Actualizar' : 'Crear'}
           </Button>
         </div>
       </form>

@@ -108,6 +108,31 @@ class ApiClient {
     return await response.json();
   }
 
+  async verifyGoogleToken(accessToken: string): Promise<Token> {
+    const response = await fetch(`${this.baseURL}/auth/google/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        access_token: accessToken,
+      }),
+    });
+
+    if (!response.ok) {
+      let errorMsg = 'Google token verification failed';
+      try {
+        const errorData = await response.json();
+        errorMsg = errorData.detail || JSON.stringify(errorData);
+      } catch (e) {
+        errorMsg = response.statusText || errorMsg;
+      }
+      throw new Error(errorMsg);
+    }
+
+    return await response.json();
+  }
+
   async register(userCreate: UserCreate): Promise<any> {
     return this.request('/users/', {
       method: 'POST',

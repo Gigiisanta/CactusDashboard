@@ -17,6 +17,13 @@ export class AuthService {
   }
 
   /**
+   * Google OAuth token verification
+   */
+  static async verifyGoogleToken(accessToken: string): Promise<Token> {
+    return apiClient.verifyGoogleToken(accessToken);
+  }
+
+  /**
    * User registration
    */
   static async register(userCreate: UserCreate): Promise<any> {

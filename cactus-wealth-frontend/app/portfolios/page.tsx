@@ -101,11 +101,7 @@ export default function PortfoliosPage() {
     e.preventDefault();
 
     try {
-      // Import auth store dynamically to access current token
-      const { useAuthStore } = await import('@/stores/auth.store');
-
-      const newPortfolio =
-        await PortfolioService.createModelPortfolio(formData);
+      const newPortfolio = await PortfolioService.createModelPortfolio(formData);
       setPortfolios([...portfolios, newPortfolio]);
       setIsCreateDialogOpen(false);
       setFormData({ name: '', description: '', risk_profile: 'LOW' });

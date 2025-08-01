@@ -1,6 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
-import { useAuthStore } from '@/stores/auth.store';
-import { isTokenExpired } from './token-utils';
+import { getToken } from 'next-auth/jwt';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -25,32 +24,9 @@ export class ApiClientInterceptor {
   }
 
   private setupInterceptors() {
-    // Request interceptor to add token and check expiry
+    // Request interceptor - NextAuth handles tokens automatically
     this.client.interceptors.request.use(
       (config) => {
-        const { token, logout } = useAuthStore.getState();
-
-        if (token) {
-          // Check if token is expired before making request
-          if (isTokenExpired(token, 2)) {
-            // 2 minute buffer
-            console.warn('🔒 Token expired, performing automatic logout');
-            logout();
-
-            // Dispatch logout event
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('auth:logout'));
-            }
-
-            // Reject the request to prevent it from going through
-            return Promise.reject(
-              new Error('Token expired - automatic logout')
-            );
-          }
-
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-
         // Add cache headers for GET requests
         if (config.method?.toLowerCase() === 'get') {
           config.headers['Cache-Control'] = 'public, max-age=300'; // 5 minutes
@@ -63,22 +39,15 @@ export class ApiClientInterceptor {
       (error) => Promise.reject(error)
     );
 
-    // Response interceptor to handle 401 errors
+    // Response interceptor to handle errors
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          console.warn('🔒 Received 401 error, performing automatic logout');
-
-          // Clear auth state aggressively
-          const { logout } = useAuthStore.getState();
-          logout();
-
-          // Clear localStorage manually as backup
+          console.warn('🔒 Received 401 error - authentication required');
+          
+          // Dispatch logout event to notify components
           if (typeof window !== 'undefined') {
-            localStorage.removeItem('cactus-auth-storage');
-
-            // Dispatch logout event to notify all components
             window.dispatchEvent(new CustomEvent('auth:logout'));
           }
         }

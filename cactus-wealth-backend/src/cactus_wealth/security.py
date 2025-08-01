@@ -79,7 +79,7 @@ async def get_current_user(
         raise credentials_exception
 
     user_repo = UserRepository(session)
-    user = user_repo.get_user_by_email(email=token_data.email)
+    user = user_repo.get_by_email(email=token_data.email)
     if user is None:
         raise credentials_exception
 
@@ -130,7 +130,7 @@ async def get_current_user_from_token(token: str) -> User:
     session = Session(get_engine(), autoflush=True, autocommit=False)
     try:
         user_repo = UserRepository(session)
-        user = user_repo.get_user_by_email(email=token_data.email)
+        user = user_repo.get_by_email(email=token_data.email)
         if user is None:
             raise credentials_exception
 

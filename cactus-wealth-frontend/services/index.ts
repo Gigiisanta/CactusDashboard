@@ -11,4 +11,4 @@ export { PortfolioService } from './portfolio.service';
 export { DashboardService } from './dashboard.service';
 export { AuthService } from './auth.service';
 export { NotificationService } from './notification.service';
-export { googleAuthService } from './google-auth.service';
+// Google auth service removed - using NextAuth instead

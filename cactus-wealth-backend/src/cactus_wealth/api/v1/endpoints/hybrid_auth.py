@@ -9,14 +9,14 @@ from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from cactus_wealth.database import get_session
-from cactus_wealth.security import get_current_user
-from cactus_wealth.models import User, WebAuthnCredential
-from cactus_wealth.schemas import UserRead, GoogleAuthResponse, GoogleUser
-from cactus_wealth.repositories import user_repository
-from cactus_wealth.services.webauthn_service import WebAuthnService
-from cactus_wealth.security import create_access_token
-from cactus_wealth.core.config import settings
+from ....database import get_session
+from ....security import get_current_user
+from ....models import User, WebAuthnCredential
+from ....schemas import UserRead, GoogleAuthResponse, GoogleUser
+from ....repositories import UserRepository
+from ....services.webauthn_service import WebAuthnService
+from ....security import create_access_token
+from ....core.config import settings
 from datetime import timedelta
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,8 @@ async def authenticate_google_user_with_passkey(
     Check if a Google user can authenticate with passkey and return authentication options.
     """
     # Find user by email
-    user = user_repository.get_user_by_email(session, email=email)
+    user_repo = UserRepository(session)
+    user = user_repo.get_by_email(email=email)
     
     if not user:
         raise HTTPException(
@@ -135,7 +136,8 @@ async def verify_google_user_passkey(
             )
         
         # Get user
-        user = user_repository.get_user_by_id(session, user_id=int(user_id))
+        user_repo = UserRepository(session)
+        user = user_repo.get_by_id(user_id=int(user_id))
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

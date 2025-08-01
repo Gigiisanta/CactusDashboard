@@ -35,23 +35,29 @@ type WebSocketEventCallback = (data: any) => void;
 class WebSocketService {
   private websocket: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private maxReconnectAttempts = 10; // Aumentar intentos
   private reconnectDelay = 1000; // Empezar con 1 segundo
+  private maxReconnectDelay = 30000; // Máximo 30 segundos
   private isConnecting = false;
   private token: string | null = null;
   private listeners: Map<string, WebSocketEventCallback[]> = new Map();
   private pingInterval: NodeJS.Timeout | null = null;
   private connectionEstablished = false;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private lastPingTime: number = 0;
+  private pongReceived = true;
+  private connectionHealthy = true;
 
   // URLs del WebSocket
   private getWebSocketUrl(): string {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 
-    // En Docker, necesitamos conectar al backend a través del proxy del frontend
-    // El frontend actúa como proxy para las conexiones WebSocket
-    const host = window.location.host;
+    // WebSockets no pueden usar el proxy de Next.js, necesitamos conectar directamente al backend
+    // En desarrollo: conectar directamente a localhost:8000
+    // En producción: usar la variable de entorno o el host actual
+    const backendHost = process.env.NEXT_PUBLIC_API_URL?.replace(/^https?:\/\//, '') || 'localhost:8000';
 
-    return `${protocol}//${host}/api/v1/ws/notifications`;
+    return `${protocol}//${backendHost}/api/v1/ws/notifications`;
   }
 
   /**
@@ -59,16 +65,17 @@ class WebSocketService {
    */
   async connect(authToken: string): Promise<boolean> {
     if (this.isConnecting || this.websocket?.readyState === WebSocket.OPEN) {
-      // WebSocket: Already connected or connecting
+      console.log('🔗 WebSocket: Already connected or connecting');
       return true;
     }
 
     this.token = authToken;
     this.isConnecting = true;
+    this.connectionHealthy = true;
 
     try {
       const wsUrl = `${this.getWebSocketUrl()}?token=${authToken}`;
-      // WebSocket: Connecting to ${wsUrl}
+      console.log(`🔗 WebSocket: Connecting to ${wsUrl}`);
 
       this.websocket = new WebSocket(wsUrl);
 
@@ -79,31 +86,45 @@ class WebSocketService {
       this.websocket.onerror = this.handleError.bind(this);
 
       return new Promise((resolve) => {
+        let resolved = false;
+        
+        const resolveOnce = (value: boolean) => {
+          if (!resolved) {
+            resolved = true;
+            resolve(value);
+          }
+        };
+
         // Resolver cuando la conexión se establezca o falle
         const checkConnection = () => {
           if (this.connectionEstablished) {
-            resolve(true);
+            resolveOnce(true);
           } else if (this.websocket?.readyState === WebSocket.CLOSED) {
-            resolve(false);
-          } else {
+            resolveOnce(false);
+          } else if (!resolved) {
             // Seguir esperando
             setTimeout(checkConnection, 100);
           }
         };
 
-        // Timeout de 10 segundos
+        // Timeout de 15 segundos
         setTimeout(() => {
-          if (!this.connectionEstablished) {
-            console.error('🔗 WebSocket: Timeout de conexión');
-            resolve(false);
+          if (!resolved) {
+            console.error('🔗 WebSocket: Timeout de conexión (15s)');
+            this.isConnecting = false;
+            if (this.websocket) {
+              this.websocket.close();
+            }
+            resolveOnce(false);
           }
-        }, 10000);
+        }, 15000);
 
         checkConnection();
       });
     } catch (error) {
       console.error('🔗 WebSocket: Error en connect:', error);
       this.isConnecting = false;
+      this.connectionHealthy = false;
       return false;
     }
   }
@@ -112,21 +133,29 @@ class WebSocketService {
    * Desconecta el WebSocket
    */
   disconnect(): void {
-    if (!this.websocket) return;
-
-    // WebSocket: Disconnecting...
+    console.log('🔗 WebSocket: Disconnecting...');
+    
     this.reconnectAttempts = 0;
     this.isConnecting = false;
+    this.connectionHealthy = false;
 
-    // Limpiar ping interval
+    // Limpiar todos los timeouts e intervalos
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
     }
 
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
     // Cerrar conexión
-    this.websocket.close(1000, 'Desconexión manual');
-    this.websocket = null;
+    if (this.websocket) {
+      this.websocket.close(1000, 'Desconexión manual');
+      this.websocket = null;
+    }
+    
     this.connectionEstablished = false;
   }
 
@@ -207,6 +236,50 @@ class WebSocketService {
     );
   }
 
+  /**
+   * Verifica si la conexión está saludable
+   */
+  isHealthy(): boolean {
+    return this.isConnected() && this.connectionHealthy;
+  }
+
+  /**
+   * Obtiene estadísticas de la conexión
+   */
+  getConnectionStats(): {
+    isConnected: boolean;
+    isHealthy: boolean;
+    reconnectAttempts: number;
+    maxReconnectAttempts: number;
+    lastPingTime: number;
+    connectionState: string;
+  } {
+    return {
+      isConnected: this.isConnected(),
+      isHealthy: this.isHealthy(),
+      reconnectAttempts: this.reconnectAttempts,
+      maxReconnectAttempts: this.maxReconnectAttempts,
+      lastPingTime: this.lastPingTime,
+      connectionState: this.getConnectionState()
+    };
+  }
+
+  /**
+   * Fuerza una reconexión inmediata
+   */
+  forceReconnect(): void {
+    console.log('🔗 WebSocket: Forcing reconnection...');
+    if (this.websocket) {
+      this.websocket.close(1000, 'Forced reconnection');
+    }
+    
+    if (this.token) {
+      setTimeout(() => {
+        this.connect(this.token!);
+      }, 1000);
+    }
+  }
+
   // Event Handlers Internos
 
   private handleOpen(event: Event): void {
@@ -224,36 +297,40 @@ class WebSocketService {
   private handleMessage(event: MessageEvent): void {
     try {
       const message: WebSocketMessage = JSON.parse(event.data);
-      // WebSocket: Message received: ${message.type}
+      console.log(`🔗 WebSocket: Message received: ${message.type}`);
 
       // Manejar tipos especiales de mensajes
       switch (message.type) {
         case 'connection_established':
           this.connectionEstablished = true;
-          // WebSocket: Connection confirmed by server
+          this.connectionHealthy = true;
+          console.log('🔗 WebSocket: Connection confirmed by server');
           break;
 
         case 'pong':
           // Respuesta a ping - mantener conexión viva
+          this.pongReceived = true;
+          this.connectionHealthy = true;
           break;
 
         case 'notification':
-          // WebSocket: New notification received
+          console.log('🔔 WebSocket: New notification received');
           this.emit('notification', message.data);
           break;
 
         case 'kpi_update':
-          // WebSocket: KPI update
+          console.log('📊 WebSocket: KPI update');
           this.emit('kpi_update', message.data);
           break;
 
         case 'connection_stats':
-          // WebSocket: Connection statistics
+          console.log('📈 WebSocket: Connection statistics');
           this.emit('connection_stats', message.data);
           break;
 
         case 'error':
           console.error('❌ WebSocket: Error del servidor:', message);
+          this.connectionHealthy = false;
           this.emit('error', message);
           break;
 
@@ -263,6 +340,7 @@ class WebSocketService {
       }
     } catch (error) {
       console.error('🔗 WebSocket: Error parseando mensaje:', error);
+      this.connectionHealthy = false;
     }
   }
 
@@ -302,30 +380,75 @@ class WebSocketService {
   private startPingInterval(): void {
     // Enviar ping cada 30 segundos para mantener conexión viva
     this.pingInterval = setInterval(() => {
-      this.send({
+      if (!this.pongReceived) {
+        // No recibimos pong del ping anterior - conexión puede estar perdida
+        console.warn('🔗 WebSocket: No pong received, connection may be lost');
+        this.connectionHealthy = false;
+        
+        // Forzar reconexión
+        if (this.websocket) {
+          this.websocket.close(1006, 'Ping timeout');
+        }
+        return;
+      }
+
+      // Marcar que esperamos un pong
+      this.pongReceived = false;
+      this.lastPingTime = Date.now();
+
+      const pingSuccess = this.send({
         type: 'ping',
         timestamp: new Date().toISOString(),
       });
+
+      if (!pingSuccess) {
+        console.warn('🔗 WebSocket: Failed to send ping');
+        this.connectionHealthy = false;
+      }
     }, 30000);
   }
 
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('🔗 WebSocket: Máximo de intentos de reconexión alcanzado');
-      this.emit('max_reconnects_reached', { attempts: this.reconnectAttempts });
+      console.error(`🔗 WebSocket: Máximo de intentos de reconexión alcanzado (${this.maxReconnectAttempts})`);
+      this.emit('max_reconnects_reached', { 
+        attempts: this.reconnectAttempts,
+        maxAttempts: this.maxReconnectAttempts 
+      });
       return;
     }
 
     this.reconnectAttempts++;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
+    
+    // Exponential backoff con límite máximo
+    const baseDelay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+    const delay = Math.min(baseDelay, this.maxReconnectDelay);
+    
+    // Añadir jitter para evitar thundering herd
+    const jitter = Math.random() * 1000;
+    const finalDelay = delay + jitter;
 
-    // WebSocket: Retrying connection in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})
+    console.log(`🔗 WebSocket: Retrying connection in ${Math.round(finalDelay)}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
-    setTimeout(() => {
-      if (this.token) {
-        this.connect(this.token);
+    this.emit('reconnecting', {
+      attempt: this.reconnectAttempts,
+      maxAttempts: this.maxReconnectAttempts,
+      delay: finalDelay
+    });
+
+    this.reconnectTimeout = setTimeout(() => {
+      if (this.token && !this.isConnected()) {
+        console.log(`🔗 WebSocket: Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+        this.connect(this.token).then(success => {
+          if (success) {
+            console.log('🔗 WebSocket: Reconnection successful');
+            this.emit('reconnected', { attempt: this.reconnectAttempts });
+          } else {
+            console.warn('🔗 WebSocket: Reconnection failed');
+          }
+        });
       }
-    }, delay);
+    }, finalDelay);
   }
 
   private emit(eventType: string, data: any): void {

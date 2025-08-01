@@ -246,12 +246,12 @@ describe('EditClientDialog', () => {
       });
 
       // Change risk profile to LOW
-      const riskProfileSelect = screen.getByDisplayValue('Moderado');
+      const riskProfileSelect = screen.getByRole('button', { name: /selecciona perfil de riesgo/i });
       await user.click(riskProfileSelect);
       await user.click(screen.getByText('Conservador'));
 
       // Check that portfolio options are filtered
-      const portfolioSelect = screen.getByDisplayValue('Seleccionar cartera modelo');
+      const portfolioSelect = screen.getByRole('button', { name: /selecciona una cartera modelo/i });
       await user.click(portfolioSelect);
       
       expect(screen.getByText('Conservative Portfolio')).toBeInTheDocument();
@@ -266,7 +266,7 @@ describe('EditClientDialog', () => {
     });
 
     it('allows changing client status', async () => {
-      const statusSelect = screen.getByDisplayValue('Prospecto');
+      const statusSelect = screen.getByRole('button', { name: /selecciona estado del cliente/i });
       await user.click(statusSelect);
       await user.click(screen.getByText('Contactado'));
       

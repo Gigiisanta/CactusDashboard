@@ -121,47 +121,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     )
 
 
-@app.get("/health")
-async def health_check() -> dict[str, Any]:
-    """Health check endpoint with performance metrics."""
-    start_time = time.time()
 
-    # Check Redis
-    redis_status = "healthy"
-    if redis_client:
-        try:
-            await redis_client.ping()
-        except Exception:
-            redis_status = "unhealthy"
-    else:
-        redis_status = "not_configured"
-
-    # Check database
-    db_status = "healthy"
-    try:
-        from cactus_wealth.database import get_session
-        from sqlalchemy import text
-
-        session = next(get_session())
-        session.execute(text("SELECT 1"))
-        session.close()
-    except Exception:
-        db_status = "unhealthy"
-
-    response_time = time.time() - start_time
-
-    return {
-        "status": "healthy",
-        "timestamp": time.time(),
-        "version": "1.0.0",
-        "services": {
-            "database": db_status,
-            "redis": redis_status,
-        },
-        "performance": {
-            "response_time_ms": round(response_time * 1000, 2),
-        },
-    }
 
 
 # Add root redirect

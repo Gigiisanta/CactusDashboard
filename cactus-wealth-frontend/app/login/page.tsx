@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { signIn, useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -12,31 +12,29 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard');
+    if (status === 'authenticated' && session) {
+      router.replace('/dashboard');
     }
-  }, [isAuthenticated, router]);
+  }, [session, status, router]);
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     setError(null);
     setIsLoading(true);
     
-    // Redirigir directamente a Google OAuth
-    const clientId = '1019817697031-9r8asaktdl106l4nt0a15v9k5l1vi6ek.apps.googleusercontent.com';
-    const redirectUri = 'http://localhost:3000/auth/google/callback';
-    const scope = 'openid email profile';
-    
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-    
-    window.location.href = authUrl;
+    try {
+      await signIn('google', { callbackUrl: '/dashboard' });
+    } catch (error) {
+      console.error('Error signing in with Google:', error);
+      setError('Error al iniciar sesión con Google. Por favor, inténtalo de nuevo.');
+      setIsLoading(false);
+    }
   };
 
   return (

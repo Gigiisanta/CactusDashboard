@@ -13,9 +13,12 @@ export function formatCurrency(
 }
 
 export function formatPercentage(
-  percentage: number,
+  percentage: number | null | undefined,
   decimals: number = 2
 ): string {
+  if (percentage === null || percentage === undefined || isNaN(percentage)) {
+    return '0.00%';
+  }
   return `${percentage.toFixed(decimals)}%`;
 }
 

@@ -30,7 +30,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { apiClient } from '@/lib/api';
-import { useAuth } from '@/context/AuthContext';
+import { useSession } from 'next-auth/react';
 import { useLiveOpsDemo } from '@/hooks/useLiveOpsDemo';
 
 export function LiveOpsDemo() {
@@ -55,7 +55,7 @@ export function LiveOpsDemo() {
     setDemoLogs,
   } = useLiveOpsDemo();
 
-  const { token } = useAuth();
+  const { data: session } = useSession();
 
   // Efecto para logs de conexión
   useEffect(() => {
@@ -162,7 +162,7 @@ export function LiveOpsDemo() {
           </h2>
           <Button
             variant={isConnected ? 'destructive' : 'default'}
-            onClick={() => handleToggleConnection(token || undefined)}
+            onClick={() => handleToggleConnection((session as any)?.accessToken || undefined)}
             className='min-w-[120px]'
           >
             {isConnected ? 'Desconectar' : 'Conectar'}

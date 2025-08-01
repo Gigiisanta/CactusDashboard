@@ -2,23 +2,24 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useSession } from 'next-auth/react';
 
 export default function HomePage() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated) {
-        router.push('/dashboard');
+    if (status !== 'loading') {
+      if (session) {
+        // Use replace instead of push to avoid history issues
+        router.replace('/dashboard');
       } else {
-        router.push('/login');
+        router.replace('/login');
       }
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [session, status, router]);
 
-  if (isLoading) {
+  if (status === 'loading') {
     return (
       <div className='flex min-h-screen items-center justify-center'>
         <div className='h-32 w-32 animate-spin rounded-full border-b-2 border-cactus-500'></div>

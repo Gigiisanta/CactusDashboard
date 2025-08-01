@@ -2,26 +2,27 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
+import { useSession } from 'next-auth/react';
 import { ClientProvider } from '@/context/ClientContext';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
+import { HealthMonitor } from '@/components/HealthMonitor';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { data: session, status } = useSession();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (status === 'unauthenticated') {
       router.push('/login');
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [status, router]);
 
-  if (isLoading) {
+  if (status === 'loading') {
     return (
       <div className='flex min-h-screen items-center justify-center'>
         <div className='h-32 w-32 animate-spin rounded-full border-b-2 border-cactus-500'></div>
@@ -29,7 +30,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!session) {
     return null;
   }
 
@@ -41,6 +42,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <Sidebar />
           <main className='flex-1 p-6'>{children}</main>
         </div>
+        <HealthMonitor />
       </div>
     </ClientProvider>
   );

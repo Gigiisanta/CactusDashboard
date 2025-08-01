@@ -1,9 +1,9 @@
 from datetime import timedelta
 
-from cactus_wealth.core.config import settings
-from cactus_wealth.database import get_session
-from cactus_wealth.schemas import Token
-from cactus_wealth.security import authenticate_user, create_access_token
+from .....core.config import settings
+from .....database import get_session
+from .....schemas import Token
+from .....security import authenticate_user, create_access_token
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session

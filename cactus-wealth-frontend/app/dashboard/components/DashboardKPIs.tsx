@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { DashboardService } from '@/services/dashboard.service';
 import { DashboardKPIsSkeleton } from './DashboardKPIs.Skeleton';
+import { DashboardSummaryResponse, DashboardMetrics } from '@/types';
 
 interface DashboardData {
   total_clients: number;
@@ -36,8 +37,8 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-function formatPercentage(percentage: number | null) {
-  if (percentage === null) return 'N/A';
+function formatPercentage(percentage: number | null | undefined) {
+  if (percentage === null || percentage === undefined) return 'N/A';
   const sign = percentage >= 0 ? '+' : '';
   return `${sign}${percentage.toFixed(2)}%`;
 }
@@ -53,8 +54,32 @@ export default React.memo(function DashboardKPIs() {
     try {
       setLoading(true);
       setError(null);
-      const data = await DashboardService.getDashboardSummary();
-      setDashboardData(data);
+      
+      // Use the new getDashboardData method that handles both response types
+      const rawData = await DashboardService.getDashboardData();
+      
+      // Convert to the expected DashboardData format
+      let dashboardData: DashboardData;
+      
+      if (DashboardService.isDashboardMetrics(rawData)) {
+        // Handle DashboardMetrics (Manager/Advisor roles)
+        dashboardData = {
+          total_clients: rawData.n_clients,
+          assets_under_management: rawData.aum_total,
+          monthly_growth_percentage: null, // Not available in DashboardMetrics
+          reports_generated_this_quarter: 0, // Not available in DashboardMetrics
+        };
+      } else {
+        // Handle DashboardSummaryResponse (other roles)
+        dashboardData = {
+          total_clients: rawData.total_clients,
+          assets_under_management: rawData.assets_under_management,
+          monthly_growth_percentage: rawData.monthly_growth_percentage,
+          reports_generated_this_quarter: rawData.reports_generated_this_quarter,
+        };
+      }
+      
+      setDashboardData(dashboardData);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
       setError('Failed to load dashboard data');

@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardMetricsCard } from '@/components/dashboard/DashboardMetricsCard';
 import { AdvisorManagement } from '@/components/dashboard/AdvisorManagement';
-import { useAuth } from '@/stores/auth.store';
+import { useAuthHybrid } from '@/hooks/useAuthHybrid';
 
 // Lazy load heavy components
 const DashboardKPIs = lazy(() => import('./components/DashboardKPIs'));
@@ -67,7 +67,7 @@ const DashboardActionsSkeleton = () => (
 );
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user } = useAuthHybrid();
   const isManagerOrAdvisor = user?.role === 'MANAGER' || user?.role === 'ADVISOR';
 
   return (

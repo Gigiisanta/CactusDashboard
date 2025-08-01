@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
 import { User, Settings, Shield, Bell } from 'lucide-react';
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { data: session } = useSession();
   const [activeSection, setActiveSection] = useState('security');
 
   const sections = [
@@ -92,7 +92,7 @@ export default function SettingsPage() {
                 <CardContent>
                   <div className="space-y-6">
                     {/* User Info */}
-                    {user && (
+                    {session?.user && (
                       <div>
                         <h3 className="text-lg font-semibold mb-3">Información de la cuenta</h3>
                         <div className="bg-sage-50 rounded-lg p-4">
@@ -101,8 +101,8 @@ export default function SettingsPage() {
                               <User className="h-5 w-5 text-cactus-600" />
                             </div>
                             <div>
-                              <p className="font-medium text-sage-900">{user.username}</p>
-                              <p className="text-sm text-sage-600">{user.email}</p>
+                              <p className="font-medium text-sage-900">{session.user.name}</p>
+                              <p className="text-sm text-sage-600">{session.user.email}</p>
                             </div>
                           </div>
                         </div>

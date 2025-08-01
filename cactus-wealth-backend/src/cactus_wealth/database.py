@@ -37,22 +37,22 @@ def get_engine(db_url: str = None) -> Engine:
 def create_tables() -> None:
     """Create all tables in the database."""
     # Import models to register them with the cleared metadata
-    # Eliminar: from cactus_wealth.models import (
-    # Eliminar:     Asset,
-    # Eliminar:     Client,
-    # Eliminar:     ClientActivity,
-    # Eliminar:     ClientNote,
-    # Eliminar:     InsurancePolicy,
-    # Eliminar:     InvestmentAccount,
-    # Eliminar:     ModelPortfolio,
-    # Eliminar:     ModelPortfolioPosition,
-    # Eliminar:     Notification,
-    # Eliminar:     Portfolio,
-    # Eliminar:     PortfolioSnapshot,
-    # Eliminar:     Position,
-    # Eliminar:     Report,
-    # Eliminar:     User,
-    # )
+    from cactus_wealth.models import (
+        Asset,
+        Client,
+        ClientActivity,
+        ClientNote,
+        InsurancePolicy,
+        InvestmentAccount,
+        ModelPortfolio,
+        ModelPortfolioPosition,
+        Notification,
+        Portfolio,
+        PortfolioSnapshot,
+        Position,
+        Report,
+        User,
+    )
 
     # Create tables
     SQLModel.metadata.create_all(get_engine())

@@ -5,9 +5,8 @@ const nextConfig = {
   
   // Environment variables - these will be available in the client bundle
   env: {
-    NEXT_PUBLIC_GOOGLE_CLIENT_ID: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '1019817697031-9r8asaktdl106l4nt0a15v9k5l1vi6ek.apps.googleusercontent.com',
     NEXT_PUBLIC_FRONTEND_URL: process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000',
-    NEXT_PUBLIC_GOOGLE_REDIRECT_URI: process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/google/callback',
+    PORT: process.env.PORT || '3000',
   },
   
   // Experimental features
@@ -22,9 +21,8 @@ const nextConfig = {
     if (!isServer) {
       config.plugins.push(
         new webpack.DefinePlugin({
-          'process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID': JSON.stringify(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID),
           'process.env.NEXT_PUBLIC_FRONTEND_URL': JSON.stringify(process.env.NEXT_PUBLIC_FRONTEND_URL),
-          'process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI': JSON.stringify(process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI),
+          'process.env.PORT': JSON.stringify(process.env.PORT || '3000'),
         })
       );
     }
@@ -47,6 +45,8 @@ const nextConfig = {
           },
         },
       };
+    } else if (dev && !isServer) {
+      config.optimization.splitChunks = false;
     }
 
     return config;
@@ -75,10 +75,7 @@ const nextConfig = {
             key: 'X-Frame-Options',
             value: 'DENY',
           },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
+          // Removed X-XSS-Protection to avoid TrustedHTML conflicts
         ],
       },
       {
@@ -89,6 +86,17 @@ const nextConfig = {
             value: 'public, max-age=300, s-maxage=300',
           },
         ],
+      },
+    ];
+  },
+
+  // API proxy to backend - flexible backend URL
+  async rewrites() {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    return [
+      {
+        source: '/api/v1/:path*',
+        destination: `${backendUrl}/api/v1/:path*`,
       },
     ];
   },

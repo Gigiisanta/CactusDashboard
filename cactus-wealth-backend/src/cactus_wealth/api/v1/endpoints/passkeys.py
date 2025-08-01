@@ -7,11 +7,11 @@ import json
 from datetime import timedelta
 from typing import Any, Dict
 
-from cactus_wealth.core.config import settings
-from cactus_wealth.database import get_session
-from cactus_wealth.models import User
-from cactus_wealth.schemas import Token
-from cactus_wealth.schemas import (
+from ...core.config import settings
+from ...database import get_session
+from ...models import User
+from ...schemas import Token
+from ...schemas import (
     AuthenticationOptionsRequest,
     AuthenticationOptionsResponse,
     AuthenticationVerificationRequest,
@@ -21,8 +21,8 @@ from cactus_wealth.schemas import (
     RegistrationOptionsResponse,
     RegistrationVerificationRequest,
 )
-from cactus_wealth.security import create_access_token, get_current_user
-from cactus_wealth.services.webauthn_service import WebAuthnService
+from ...security import create_access_token, get_current_user
+from ...services.webauthn_service import WebAuthnService
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from sqlmodel import Session
@@ -187,7 +187,7 @@ async def get_authentication_options(
         # For usernameless authentication, pass None
         user = None
         if request.username:
-            from cactus_wealth.repositories import UserRepository
+            from ...repositories import UserRepository
             user_repo = UserRepository(session)
             user = user_repo.get_user_by_username(request.username)
             if not user:

@@ -74,6 +74,8 @@ services:
       args:
         - ENVIRONMENT=production
     restart: unless-stopped
+    ports:
+      - "8000:8000"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-cactus_user}:${POSTGRES_PASSWORD:-cactus_password}@db:5432/${POSTGRES_DB:-cactus_db}
       REDIS_URL: redis://:${REDIS_PASSWORD:-cactus_redis_secure_2024}@redis:6379
@@ -126,6 +128,8 @@ services:
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://34.195.179.168/api}
         - NEXT_PUBLIC_FRONTEND_URL=${NEXT_PUBLIC_FRONTEND_URL:-http://34.195.179.168}
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://34.195.179.168/api}
@@ -162,4 +166,4 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.25.0.0/16
+        - subnet: 172.28.0.0/16
