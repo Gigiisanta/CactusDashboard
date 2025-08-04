@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0",
+  "tasks": [
+    {
+      "id": "T001",
+      "title": "Configurar entorno Task Master",
+      "status": "done",
+      "subtasks": []
+    }
+  ]
+} 

@@ -9,11 +9,11 @@ export async function middleware(request: NextRequest) {
   
   // Si no hay token y está intentando acceder a una ruta protegida
   if (!token && request.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/auth/login', request.url));
   }
   
   // Si hay token y está intentando acceder al login, redirigir al dashboard
-  if (token && request.nextUrl.pathname === '/login') {
+  if (token && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/auth/login')) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
@@ -21,5 +21,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/clients/:path*', '/reports/:path*', '/login'],
+  matcher: ['/dashboard/:path*', '/clients/:path*', '/reports/:path*', '/login', '/auth/login'],
 };
