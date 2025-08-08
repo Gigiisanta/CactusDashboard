@@ -14,7 +14,7 @@ export default function HomePage() {
         // Use replace instead of push to avoid history issues
         router.replace('/dashboard');
       } else {
-        router.replace('/login');
+        router.replace('/auth/login');
       }
     }
   }, [session, status, router]);

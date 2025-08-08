@@ -49,9 +49,16 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 
 def authenticate_user(session: Session, username: str, password: str) -> User | None:
-    """Authenticate a user with username and password."""
+    """Authenticate a user with username/email and password."""
     user_repo = UserRepository(session)
-    user = user_repo.get_user_by_username(username=username)
+    
+    # Try to find user by username first
+    user = user_repo.get_by_username(username=username)
+    
+    # If not found by username, try by email
+    if not user:
+        user = user_repo.get_by_email(email=username)
+    
     if not user:
         return None
     if not verify_password(password, user.hashed_password):

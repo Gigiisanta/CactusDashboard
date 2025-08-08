@@ -3,990 +3,824 @@ version: '3'
 vars:
   AWS_INSTANCE_ID: "i-022f3394d98803da8"
   SSH_KEY: "cactus-key.pem"
-  COMPOSE_FILE: "docker-compose.prod.yml"
-  FRONTEND_URL: "http://localhost:3000"
-  BACKEND_URL: "http://localhost:8000"
-  DOCKER_COMPOSE_CMD: "docker-compose"
+  COMPOSE_FILE: "docker-compose.yml"
+  PODMAN_COMPOSE: "podman-compose"
 
 tasks:
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 🚀 DESARROLLO LOCAL
-  # ═══════════════════════════════════════════════════════════════════════════════
-  
+  # ===== DESARROLLO LOCAL =====
   dev:
-    desc: "🚀 Iniciar desarrollo local completo"
+    desc: "🚀 Iniciar desarrollo local completo (Podman backend + Podman frontend)"
+    silent: true
     cmds:
       - task: cleanup
-      - echo "🌵 Iniciando CactusDashboard en modo desarrollo..."
-      - task: docker:check
-      - docker-compose -f {{.COMPOSE_FILE}} up -d
-      - echo "⏳ Esperando que los servicios estén listos..."
-      - sleep 10
-      - task: status
-      - echo "🎉 Desarrollo iniciado! Frontend http://localhost:3000"
+      - echo "🌵 Iniciando CactusDashboard en modo desarrollo con Podman para todos los servicios..."
+      - task: podman:ensure
+      - |
+        set -e
+        echo "🔧 Iniciando stack completo con Podman..."
+        ATT=0
+        # Intentar bajar el stack primero para liberar puertos gestionados por Podman
+        {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} down || true
+        until {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d; do
+          ATT=$((ATT+1))
+          if [ $ATT -ge 3 ]; then
+            echo "⚠️ Falló levantar stack tras 3 intentos. Intentando reset de Podman..."
+            task --silent podman:reset
+            break
+          fi
+          echo "⏳ Reintentando levantar stack ($ATT/3)..."
+          sleep 3
+        done
+        echo "⏳ Esperando que los servicios estén listos..."
+        ATT=0
+        until (curl -sf http://localhost:8000/health >/dev/null 2>&1) && (curl -sf http://localhost:3000/api/health >/dev/null 2>&1); do
+          ATT=$((ATT+1))
+          if [ $ATT -ge 30 ]; then
+            echo "⚠️ Los servicios no están saludables aún. Continuando igualmente."
+            break
+          fi
+          sleep 3
+        done
+        echo "🎉 Desarrollo iniciado! Backend http://localhost:8000, Frontend http://localhost:3000"
 
   dev:frontend:
     desc: "🚀 Iniciar solo frontend en localhost:3000"
+    silent: true
     cmds:
-      - echo "🌵 Iniciando frontend en localhost:3000..."
-      - ./scripts/start-frontend.sh
+      - echo "🌵 Iniciando frontend en Podman..."
+      - task: podman:check
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d frontend'
+
+  dev:frontend:local:
+    desc: "🚀 Iniciar frontend localmente (sin Docker)"
+    silent: true
+    cmds:
+      - echo "🌐 Iniciando frontend localmente..."
+      - ./scripts/start-frontend-local.sh
 
   dev:frontend:clean:
     desc: "🧹 Iniciar frontend con limpieza completa"
+    silent: true
     cmds:
       - echo "🧹 Limpiando e iniciando frontend..."
       - task: cleanup:ports
       - cd cactus-wealth-frontend && rm -rf .next node_modules/.cache
       - cd cactus-wealth-frontend && npm install
-      - ./scripts/start-frontend.sh
+      - ./scripts/start-frontend-local.sh
 
   dev:stop:
     desc: "⏹️ Detener desarrollo local"
+    silent: true
     cmds:
       - echo "🛑 Deteniendo servicios locales..."
-      - task: docker:check
-      - docker-compose -f {{.COMPOSE_FILE}} down
+      - task: podman:check
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} down'
       - task: cleanup
       - echo "✅ Servicios locales detenidos"
 
   dev:restart:
     desc: "🔄 Reiniciar desarrollo local"
+    silent: true
     cmds:
+      - echo "🔄 Reiniciando desarrollo local..."
       - task: dev:stop
+      - sleep 3
       - task: dev
 
   dev:rebuild:
     desc: "🔨 Rebuild completo y reiniciar"
+    silent: true
     cmds:
       - echo "🔨 Rebuilding servicios..."
-      - task: docker:check
-      - docker-compose -f {{.COMPOSE_FILE}} down
-      - docker-compose -f {{.COMPOSE_FILE}} build --no-cache
-      - docker-compose -f {{.COMPOSE_FILE}} up -d
+      - task: podman:check
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} down'
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} build --no-cache'
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d'
       - echo "✅ Rebuild completado"
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 📊 MONITOREO Y ESTADO
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  status:
-    desc: "📊 Estado general del sistema"
+  build:
+    desc: "🔨 Construir todas las imágenes"
+    silent: true
     cmds:
-      - echo "📊 Estado de contenedores Docker:"
-      - docker-compose -f {{.COMPOSE_FILE}} ps
-      - echo ""
-      - echo "🌐 Puertos en uso:"
-      - |
-        lsof -i :3000 || echo "  Puerto 3000 Libre"
-        lsof -i :8000 || echo "  Puerto 8000 Libre"
-        lsof -i :5432 || echo "  Puerto 5432 Libre"
-        lsof -i :6379 || echo "  Puerto 6379 Libre"
+      - echo "🔨 Construyendo todas las imágenes..."
+      - task: podman:check
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} build'
+      - echo "✅ Imágenes construidas"
 
-  health:
-    desc: "🏥 Verificar salud de todos los servicios"
+  build:backend:
+    desc: "🔨 Construir imagen del backend"
+    silent: true
     cmds:
-      - echo "🏥 Verificando salud de servicios..."
-      - |
-        if curl -s -I http://localhost:3000 | head -1 | grep -q "200\|30[0-9]"; then
-          echo "✅ Frontend (localhost:3000): OK"
-        else
-          echo "❌ Frontend (localhost:3000): No responde"
-        fi
-      - |
-        if curl -s http://localhost:8000/health > /dev/null 2>&1; then
-          echo "✅ Backend (localhost:8000): OK"
-        else
-          echo "❌ Backend (localhost:8000): No responde"
-        fi
+      - echo "🔨 Construyendo imagen del backend..."
+      - task: podman:check
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} build backend'
+      - echo "✅ Imagen del backend construida"
 
-  ports:
-    desc: "🔌 Verificar puertos en uso"
+  build:frontend:
+    desc: "🔨 Construir imagen del frontend"
+    silent: true
     cmds:
-      - echo "🔌 Verificando puertos..."
-      - |
-        for port in 3000 8000 5432 6379 80 443; do
-          if lsof -i :$port > /dev/null 2>&1; then
-            echo "✅ Puerto $port en uso"
-          else
-            echo "⚪ Puerto $port libre"
-          fi
-        done
+      - echo "🔨 Construyendo imagen del frontend..."
+      - task: podman:check
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} build frontend'
+      - echo "✅ Imagen del frontend construida"
 
-  resources:
-    desc: "📈 Mostrar uso de recursos"
+  build:frontend:direct:
+    desc: "🔨 Construir imagen del frontend directamente con podman"
+    silent: true
     cmds:
-      - echo "📈 Uso de recursos del sistema..."
-      - echo "🐳 Estadísticas de contenedores:"
-      - docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}"
-      - echo ""
-      - echo "💻 Sistema:"
-      - |
-        top -l 1 | grep "CPU usage" || echo "  CPU: No disponible"
-      - echo "💾 Disco:"
-      - |
-        df -h . | tail -1
+      - echo "🔨 Construyendo imagen del frontend directamente..."
+      - task: podman:check
+      - 'cd cactus-wealth-frontend && podman build -t cactusdashboard_frontend -f Dockerfile.dev .'
+      - echo "✅ Imagen del frontend construida directamente"
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 🔍 HEALTH CHECKS GRANULARES
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  health:services:
-    desc: "🔍 Verificar estado de servicios Docker"
-    deps: [_check:docker]
+  build:frontend:verbose:
+    desc: "🔨 Construir imagen del frontend con salida verbose"
+    silent: false
     cmds:
-      - echo "🔍 Verificando estado de servicios Docker..."
-      - |
-        if {{.DOCKER_COMPOSE_CMD}} -f {{.COMPOSE_FILE}} ps | grep -q "Up"; then
-          echo "✅ Servicios Docker ejecutándose:"
-          {{.DOCKER_COMPOSE_CMD}} -f {{.COMPOSE_FILE}} ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
-        else
-          echo "❌ No hay servicios Docker ejecutándose"
-          echo "💡 Usa 'task dev' para iniciar los servicios"
-        fi
+      - echo "🔨 Construyendo imagen del frontend con salida verbose..."
+      - task: podman:check
+      - '{{.PODMAN_COMPOSE}} --verbose -f {{.COMPOSE_FILE}} build frontend'
+      - echo "✅ Imagen del frontend construida"
 
-  health:endpoints:
-    desc: "🌐 Verificar endpoints HTTP"
-    cmds:
-      - echo "🌐 Verificando endpoints HTTP..."
-      - |
-        check_endpoint() {
-          local url=$1
-          local name=$2
-          echo -n "  $name ($url): "
-          if curl -s --max-time 5 "$url" > /dev/null 2>&1; then
-            echo "✅ OK"
-          else
-            echo "❌ FAIL"
-          fi
-        }
-        
-        check_endpoint "{{.FRONTEND_URL}}" "Frontend"
-        check_endpoint "{{.BACKEND_URL}}/health" "Backend Health"
-        check_endpoint "{{.FRONTEND_URL}}/api/auth/providers" "NextAuth Providers"
-
-  health:database:
-    desc: "🗄️ Verificar conexión a base de datos"
-    deps: [_check:docker]
-    cmds:
-      - echo "🗄️ Verificando conexión a base de datos..."
-      - |
-        if {{.DOCKER_COMPOSE_CMD}} -f {{.COMPOSE_FILE}} ps db | grep -q "Up"; then
-          echo "✅ Contenedor de base de datos ejecutándose"
-          echo -n "  Conexión PostgreSQL: "
-          if {{.DOCKER_COMPOSE_CMD}} -f {{.COMPOSE_FILE}} exec -T db pg_isready -U cactus_user > /dev/null 2>&1; then
-            echo "✅ OK"
-          else
-            echo "❌ FAIL"
-          fi
-        else
-          echo "❌ Contenedor de base de datos no está ejecutándose"
-        fi
-
-  health:auth:
-    desc: "🔐 Verificar configuración de autenticación"
-    cmds:
-      - echo "🔐 Verificando configuración de autenticación..."
-      - |
-        check_env_var() {
-          local var_name=$1
-          local file_path=$2
-          if grep -q "^$var_name=" "$file_path" 2>/dev/null; then
-            echo "  ✅ $var_name configurado"
-          else
-            echo "  ❌ $var_name no configurado"
-          fi
-        }
-        
-        if [ -f ".env" ]; then
-          echo "📁 Verificando .env:"
-          check_env_var "NEXTAUTH_SECRET" ".env"
-          check_env_var "GOOGLE_CLIENT_ID" ".env"
-          check_env_var "GOOGLE_CLIENT_SECRET" ".env"
-        else
-          echo "❌ Archivo .env no encontrado"
-        fi
-
-  health:resources:
-    desc: "💻 Verificar uso de recursos del sistema"
-    cmds:
-      - echo "💻 Verificando uso de recursos del sistema..."
-      - |
-        echo "📊 CPU y Memoria:"
-        if command -v top >/dev/null 2>&1; then
-          top -l 1 -n 0 | grep "CPU usage\|PhysMem"
-        fi
-        
-        echo ""
-        echo "💾 Espacio en disco:"
-        df -h / | tail -1 | awk '{print "  Usado: " $3 " / " $2 " (" $5 ")"}'
-        
-        echo ""
-        echo "🐳 Recursos Docker:"
-        if docker system df >/dev/null 2>&1; then
-          docker system df
-        else
-          echo "  ❌ Docker no disponible"
-        fi
-
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 📊 MONITOREO AVANZADO
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  monitor:continuous:
-    desc: "📊 Monitoreo continuo del sistema"
-    cmds:
-      - echo "📊 Iniciando monitoreo continuo (Ctrl+C para detener)..."
-      - |
-        while true; do
-          clear
-          echo "🌵 CACTUS DASHBOARD - MONITOREO CONTINUO"
-          echo "════════════════════════════════════════"
-          date
-          echo ""
-          
-          # Solo ejecutar health checks que no dependan de Docker
-          echo "🔍 Health Checks:"
-          task health:endpoints --silent || echo "❌ Endpoints no disponibles"
-          echo ""
-          task health:auth --silent || echo "❌ Auth no configurado"
-          echo ""
-          task health:resources --silent || echo "❌ Error en recursos"
-          
-          echo ""
-          echo "🔄 Actualizando en 30 segundos... (Ctrl+C para detener)"
-          sleep 30
-        done
-
-  monitor:continuous-full:
-    desc: "📊 Monitoreo continuo completo (requiere Docker)"
-    cmds:
-      - echo "📊 Iniciando monitoreo continuo completo (Ctrl+C para detener)..."
-      - |
-        while true; do
-          clear
-          echo "🌵 CACTUS DASHBOARD - MONITOREO CONTINUO COMPLETO"
-          echo "═══════════════════════════════════════════════════"
-          date
-          echo ""
-          
-          task health:services --silent
-          echo ""
-          task health:endpoints --silent
-          echo ""
-          task health:auth --silent
-          echo ""
-          task health:resources --silent
-          
-          echo ""
-          echo "🔄 Actualizando en 30 segundos... (Ctrl+C para detener)"
-          sleep 30
-        done
-
-  monitor:logs:
-    desc: "📺 Monitoreo de logs con filtros"
-    cmds:
-      - echo "📺 Monitoreo de logs con filtros..."
-      - |
-        echo "Filtros disponibles:"
-        echo "  1. Errores (error, exception, failed)"
-        echo "  2. Autenticación (auth, oauth, login)"
-        echo "  3. Base de datos (database, sql, postgres)"
-        echo "  4. Todos los logs"
-        echo ""
-        read -p "Selecciona filtro (1-4): " filter
-        
-        case $filter in
-          1) {{.DOCKER_COMPOSE_CMD}} -f {{.COMPOSE_FILE}} logs -f --tail=100 | grep -i "error\|exception\|failed" ;;
-          2) {{.DOCKER_COMPOSE_CMD}} -f {{.COMPOSE_FILE}} logs -f --tail=100 | grep -i "auth\|oauth\|login" ;;
-          3) {{.DOCKER_COMPOSE_CMD}} -f {{.COMPOSE_FILE}} logs -f --tail=100 | grep -i "database\|sql\|postgres" ;;
-          4) {{.DOCKER_COMPOSE_CMD}} -f {{.COMPOSE_FILE}} logs -f --tail=100 ;;
-          *) echo "❌ Opción inválida" ;;
-        esac
-
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 🔍 DIAGNÓSTICOS AVANZADOS
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  diagnose:all:
-    desc: "🔍 Ejecutar todos los diagnósticos disponibles"
-    cmds:
-      - echo "🔍 DIAGNÓSTICO COMPLETO DEL SISTEMA"
-      - echo "═══════════════════════════════════════"
-      - echo ""
-      - task diagnose:network
-      - echo ""
-      - task diagnose:performance
-      - echo ""
-      - task diagnose:security
-      - echo ""
-      - task diagnose:dependencies
-      - echo ""
-      - echo "✅ Diagnóstico completo finalizado"
-
-  diagnose:network:
-    desc: "🌐 Diagnóstico de red y conectividad"
-    cmds:
-      - echo "🌐 Diagnóstico de red y conectividad..."
-      - |
-        echo "📡 Puertos en uso:"
-        netstat -an | grep LISTEN | grep -E ":3000|:8000|:5432|:6379" || echo "  No hay puertos relevantes en uso"
-        
-        echo ""
-        echo "🔗 Conectividad externa:"
-        ping -c 3 google.com >/dev/null 2>&1 && echo "  ✅ Internet OK" || echo "  ❌ Sin conexión a internet"
-        
-        echo ""
-        echo "🐳 Red Docker:"
-        if docker network ls >/dev/null 2>&1; then
-          docker network ls | grep cactus || echo "  No hay redes Docker de Cactus"
-        else
-          echo "  ❌ Docker no disponible"
-        fi
-
-  diagnose:performance:
-    desc: "⚡ Diagnóstico de rendimiento"
-    cmds:
-      - echo "⚡ Diagnóstico de rendimiento..."
-      - echo "🚀 Tiempo de respuesta de endpoints:"
-      - |
-        echo -n "  Frontend: "
-        if curl -o /dev/null -s --max-time 5 "http://localhost:3000" 2>/dev/null; then
-          time_result=$(curl -o /dev/null -s -w "%{time_total}" --max-time 10 "http://localhost:3000" 2>/dev/null || echo "error")
-          if [ "$time_result" != "error" ]; then
-            echo "${time_result}s"
-          else
-            echo "❌ ERROR"
-          fi
-        else
-          echo "❌ NO DISPONIBLE"
-        fi
-      - |
-        echo -n "  Backend: "
-        if curl -o /dev/null -s --max-time 5 "http://localhost:8000/health" 2>/dev/null; then
-          time_result=$(curl -o /dev/null -s -w "%{time_total}" --max-time 10 "http://localhost:8000/health" 2>/dev/null || echo "error")
-          if [ "$time_result" != "error" ]; then
-            echo "${time_result}s"
-          else
-            echo "❌ ERROR"
-          fi
-        else
-          echo "❌ NO DISPONIBLE"
-        fi
-      - echo ""
-      - echo "💾 Rendimiento de disco:"
-      - |
-        echo "  Escribiendo 10MB..."
-        if dd if=/dev/zero of=/tmp/test_write bs=1m count=10 2>/dev/null; then
-          echo "  ✅ Test de escritura completado"
-          rm -f /tmp/test_write 2>/dev/null
-        else
-          echo "  ❌ Error en test de escritura"
-        fi
-
-  diagnose:security:
-    desc: "🔒 Diagnóstico de seguridad"
-    cmds:
-      - echo "🔒 Diagnóstico de seguridad..."
-      - |
-        echo "🔐 Verificación de secretos:"
-        
-        check_secret() {
-          local var_name=$1
-          local file_path=$2
-          if grep -q "^$var_name=" "$file_path" 2>/dev/null; then
-            local value=$(grep "^$var_name=" "$file_path" | cut -d'=' -f2 | tr -d '"')
-            if [ ${#value} -gt 20 ]; then
-              echo "  ✅ $var_name: Longitud adecuada (${#value} chars)"
-            else
-              echo "  ⚠️ $var_name: Muy corto (${#value} chars)"
-            fi
-          else
-            echo "  ❌ $var_name: No configurado"
-          fi
-        }
-        
-        if [ -f ".env" ]; then
-          check_secret "NEXTAUTH_SECRET" ".env"
-          check_secret "GOOGLE_CLIENT_SECRET" ".env"
-        fi
-        
-        echo ""
-        echo "🔒 Permisos de archivos sensibles:"
-        for file in .env .env.local; do
-          if [ -f "$file" ]; then
-            perms=$(ls -la "$file" | awk '{print $1}')
-            echo "  $file: $perms"
-          fi
-        done
-
-  diagnose:dependencies:
-    desc: "📦 Diagnóstico de dependencias"
-    cmds:
-      - echo "📦 Diagnóstico de dependencias..."
-      - |
-        echo "🔧 Herramientas del sistema:"
-        
-        check_tool() {
-          local tool=$1
-          local name=$2
-          if command -v "$tool" >/dev/null 2>&1; then
-            local version=$($tool --version 2>/dev/null | head -1 || echo "versión desconocida")
-            echo "  ✅ $name: $version"
-          else
-            echo "  ❌ $name: No instalado"
-          fi
-        }
-        
-        check_tool "docker" "Docker"
-        check_tool "node" "Node.js"
-        check_tool "npm" "NPM"
-        check_tool "python3" "Python"
-        check_tool "curl" "cURL"
-        check_tool "git" "Git"
-        
-        echo ""
-        echo "📦 Dependencias del proyecto:"
-        if [ -f "cactus-wealth-frontend/package.json" ]; then
-          echo "  ✅ Frontend package.json encontrado"
-          if [ -f "cactus-wealth-frontend/node_modules" ]; then
-            echo "  ✅ Frontend node_modules instalado"
-          else
-            echo "  ❌ Frontend node_modules no encontrado"
-          fi
-        fi
-        
-        if [ -f "cactus-wealth-backend/requirements.txt" ]; then
-          echo "  ✅ Backend requirements.txt encontrado"
-        fi
-
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 📺 LOGS Y DEBUGGING
-  # ═══════════════════════════════════════════════════════════════════════════════
-
+  # ===== LOGS Y DEBUGGING =====
   logs:
     desc: "📺 Ver logs en vivo - todos los servicios"
+    silent: true
     cmds:
       - echo "📺 Logs en vivo (Ctrl+C para salir)..."
-      - docker-compose -f {{.COMPOSE_FILE}} logs -f --tail=50
+      - |
+        set -e
+        SERVICES="cactus-backend cactus-frontend cactus-db cactus-redis cactus-nginx cactus-prometheus cactus-grafana"
+        ensure_targets() {
+          RUNNING_NAMES="$(podman ps --format '{{.Names}}')"
+          TARGETS=""
+          for s in $SERVICES; do
+            if echo "$RUNNING_NAMES" | grep -qx "$s"; then
+              TARGETS="$TARGETS $s"
+            fi
+          done
+        }
+
+        echo "🔎 Verificando Podman..."
+        if ! podman info >/dev/null 2>&1; then
+          echo "🔧 Podman no disponible. Intentando iniciar máquina..."
+          task --silent podman:ensure || true
+        fi
+
+        echo "🔎 Detectando contenedores activos..."
+        ensure_targets
+        if [ -z "$TARGETS" ]; then
+          echo "🚀 No hay contenedores. Iniciando stack con podman-compose..."
+          {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d
+          echo "⏳ Esperando inicio de servicios..."
+          sleep 8
+          ensure_targets
+        fi
+
+        if [ -z "$TARGETS" ]; then
+          echo "❌ No se pudieron iniciar los servicios. Revisa: task debug"
+          exit 1
+        fi
+
+        echo "📦 Mostrando logs de:$TARGETS"
+        # Usamos podman logs para evitar la limitación con múltiples contenedores en modo remoto
+        exec podman logs -f --tail=50 $TARGETS
 
   logs:backend:
     desc: "📺 Ver logs del backend"
+    silent: true
     cmds:
       - echo "📺 Logs del backend (Ctrl+C para salir)..."
-      - docker-compose -f {{.COMPOSE_FILE}} logs -f --tail=50 backend
+      - |
+        set -e
+        echo "🔎 Verificando Podman..."
+        podman info >/dev/null 2>&1 || task --silent podman:ensure || true
+        if ! podman ps --format '{{.Names}}' | grep -qx 'cactus-backend'; then
+          echo "🚀 Iniciando backend con podman-compose..."
+          {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d backend
+          sleep 5
+        fi
+        echo "📦 Mostrando logs de: cactus-backend"
+        exec podman logs -f --tail=50 cactus-backend
 
   logs:frontend:
     desc: "📺 Ver logs del frontend"
+    silent: true
     cmds:
       - echo "📺 Logs del frontend (Ctrl+C para salir)..."
-      - docker-compose -f {{.COMPOSE_FILE}} logs -f --tail=50 frontend
+      - |
+        set -e
+        echo "🔎 Verificando Podman..."
+        podman info >/dev/null 2>&1 || task --silent podman:ensure || true
+        if ! podman ps --format '{{.Names}}' | grep -qx 'cactus-frontend'; then
+          echo "🚀 Iniciando frontend con podman-compose..."
+          {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d frontend
+          sleep 5
+        fi
+        echo "📦 Mostrando logs de: cactus-frontend"
+        exec podman logs -f --tail=50 cactus-frontend
 
   logs:db:
     desc: "📺 Ver logs de la base de datos"
+    silent: true
     cmds:
       - echo "📺 Logs de la base de datos (Ctrl+C para salir)..."
-      - docker-compose -f {{.COMPOSE_FILE}} logs -f --tail=50 db
+      - |
+        set -e
+        echo "🔎 Verificando Podman..."
+        podman info >/dev/null 2>&1 || task --silent podman:ensure || true
+        if ! podman ps --format '{{.Names}}' | grep -qx 'cactus-db'; then
+          echo "🚀 Iniciando base de datos con podman-compose..."
+          {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d db
+          sleep 5
+        fi
+        echo "📦 Mostrando logs de: cactus-db"
+        exec podman logs -f --tail=50 cactus-db
 
   debug:
     desc: "🔍 Diagnóstico completo del sistema"
+    silent: true
     cmds:
       - echo "🔍 Diagnóstico completo de CactusDashboard..."
-      - task: status
-      - task: health
+      - task: status:local
+      - task: health:local
       - task: ports
       - task: resources
       - task: docker:diagnose
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 🐚 SHELLS INTERACTIVOS
-  # ═══════════════════════════════════════════════════════════════════════════════
-
   shell:backend:
     desc: "🐚 Shell interactivo en backend"
+    silent: true
     cmds:
       - echo "🐚 Entrando al contenedor backend (exit para salir)..."
-      - docker-compose -f {{.COMPOSE_FILE}} exec backend /bin/bash
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} exec backend /bin/bash'
 
   shell:frontend:
-    desc: "🐚 Shell interactivo en frontend"
+    desc: "🐚 Acceder al shell del frontend"
+    silent: true
     cmds:
-      - echo "🐚 Entrando al contenedor frontend (exit para salir)..."
-      - docker-compose -f {{.COMPOSE_FILE}} exec frontend /bin/sh
+      - echo "🐚 Accediendo al shell del frontend..."
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} exec frontend /bin/sh'
 
   shell:db:
-    desc: "🐚 Shell PostgreSQL"
+    desc: "🐚 Acceder al shell de la base de datos"
+    silent: true
     cmds:
-      - echo "🐚 Entrando a PostgreSQL (\\q para salir)..."
-      - docker-compose -f {{.COMPOSE_FILE}} exec db psql -U cactus_user -d cactus_db
+      - echo "🐚 Accediendo al shell de la base de datos..."
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} exec db /bin/bash'
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 🧹 LIMPIEZA Y MANTENIMIENTO
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  cleanup:
-    desc: "🧹 Limpiar puertos y cachés"
+  # ===== MONITOREO Y ESTADO =====
+  status:
+    desc: "📊 Estado general del sistema"
+    silent: true
     cmds:
-      - echo "🧹 Limpiando puertos y cachés..."
-      - task: cleanup:ports
-      - task: cleanup:frontend
-      - echo "✅ Limpieza completada"
+      - echo "📊 Estado de CactusDashboard..."
+      - task: status:local
+      - task: status:aws
 
-  cleanup:ports:
-    desc: "🧹 Limpiar solo puertos (3000, 3001, 8000, 8080)"
+  status:local:
+    desc: "📊 Estado de servicios locales"
+    silent: true
     cmds:
-      - echo "🧹 Limpiando puertos..."
-      - ./scripts/cleanup-ports.sh
-      - echo "✅ Puertos limpiados"
+      - echo "🏠 Servicios locales:"
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} ps'
+      - echo ""
+      - echo "🌐 URLs disponibles:"
+      - echo "Frontend http://localhost:3000"
+      - echo "Backend http://localhost:8000"
+      - echo "API Docs http://localhost:8000/docs"
+      - echo "Health http://localhost:8000/health"
 
-  cleanup:frontend:
-    desc: "🧹 Limpiar caché y build del frontend"
+  status:aws:
+    desc: "📊 Estado de instancia AWS"
+    silent: true
     cmds:
-      - echo "🧹 Limpiando frontend..."
-      - |
-        cd cactus-wealth-frontend
-        rm -rf .next node_modules/.cache dist build
-        echo "🗑️ Archivos de build y caché eliminados"
-      - echo "✅ Frontend limpiado"
+      - echo "☁️ Estado de AWS:"
+      - aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].{State:State.Name,IP:PublicIpAddress,Type:InstanceType}' --output table
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # ☁️ AWS MANAGEMENT
-  # ═══════════════════════════════════════════════════════════════════════════════
+  health:
+    desc: "🏥 Verificar salud de servicios"
+    silent: true
+    cmds:
+      - echo "🏥 Verificando salud de servicios..."
+      - task: health:local
+      - task: health:aws
 
+  health:local:
+    desc: "🏥 Salud de servicios locales"
+    silent: true
+    cmds:
+      - echo "🏠 Salud local:"
+      - curl -s http://localhost:8000/health || echo "❌ Backend no responde"
+      - curl -s http://localhost:3000/api/health || echo "❌ Frontend no responde"
+
+  health:aws:
+    desc: "🏥 Salud de servicios AWS"
+    silent: true
+    cmds:
+      - echo "☁️ Salud AWS:"
+      - task: aws:ip
+      - echo "Verificando endpoints AWS..."
+      - curl -s http://$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text):8000/health || echo "❌ Backend AWS no responde"
+
+  ports:
+    desc: "🔌 Verificar puertos en uso"
+    silent: true
+    cmds:
+      - echo "🔌 Puertos en uso:"
+      - lsof -i :3000 || echo "✅ Puerto 3000 libre"
+      - lsof -i :8000 || echo "✅ Puerto 8000 libre"
+      - lsof -i :5432 || echo "✅ Puerto 5432 libre"
+      - lsof -i :6379 || echo "✅ Puerto 6379 libre"
+
+  resources:
+    desc: "💾 Uso de recursos del sistema"
+    silent: true
+    cmds:
+      - echo "💾 Uso de recursos:"
+      - podman stats --no-stream
+      - echo ""
+      - echo "💿 Espacio en disco:"
+      - df -h
+
+  # ===== AWS MANAGEMENT =====
   aws:start:
     desc: "▶️ Iniciar instancia EC2"
+    silent: true
     cmds:
-      - echo "▶️ Iniciando instancia EC2..."
-      - |
-        current_state=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null || echo "unknown")
-        if [ "$current_state" = "running" ]; then
-          echo "⚠️ La instancia ya está ejecutándose"
-          ip=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-          echo "🌐 IP pública: $ip"
-          echo "🔗 URL: http://$ip"
-        else
-          aws ec2 start-instances --instance-ids {{.AWS_INSTANCE_ID}} > /dev/null
-          echo "⏳ Esperando que la instancia esté lista..."
-          aws ec2 wait instance-running --instance-ids {{.AWS_INSTANCE_ID}}
-          ip=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-          echo "✅ Instancia iniciada exitosamente"
-          echo "🌐 IP pública: $ip"
-          echo "🔗 URL: http://$ip"
-        fi
+      - echo "▶️ Iniciando instancia AWS..."
+      - aws ec2 start-instances --instance-ids {{.AWS_INSTANCE_ID}}
+      - echo "⏳ Esperando que la instancia esté lista..."
+      - aws ec2 wait instance-running --instance-ids {{.AWS_INSTANCE_ID}}
+      - echo "✅ Instancia iniciada"
+      - task: aws:ip
 
   aws:stop:
-    desc: "⏹️ Detener instancia EC2 (ahorrar dinero)"
+    desc: "⏹️ Detener instancia (ahorrar dinero)"
+    silent: true
     cmds:
-      - echo "⏹️ Deteniendo instancia EC2..."
-      - |
-        current_state=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null || echo "unknown")
-        if [ "$current_state" = "stopped" ]; then
-          echo "⚠️ La instancia ya está detenida"
-        else
-          aws ec2 stop-instances --instance-ids {{.AWS_INSTANCE_ID}} > /dev/null
-          echo "⏳ Esperando que la instancia se detenga..."
-          aws ec2 wait instance-stopped --instance-ids {{.AWS_INSTANCE_ID}}
-          echo "✅ Instancia detenida exitosamente"
-          echo "💰 ¡Dinero ahorrado! La instancia ya no genera costos"
-        fi
+      - echo "⏹️ Deteniendo instancia AWS..."
+      - aws ec2 stop-instances --instance-ids {{.AWS_INSTANCE_ID}}
+      - echo "✅ Instancia detenida (ahorrando dinero)"
 
   aws:status:
-    desc: "📊 Estado de la instancia EC2"
+    desc: "📊 Estado de la instancia"
+    silent: true
     cmds:
-      - echo "📊 Verificando estado de la instancia EC2..."
-      - |
-        state=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null || echo "unknown")
-        type=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].InstanceType' --output text 2>/dev/null || echo "unknown")
-        ip=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text 2>/dev/null || echo "none")
-        
-        echo "🆔 ID: {{.AWS_INSTANCE_ID}}"
-        echo "📦 Tipo: $type"
-        echo "🔄 Estado: $state"
-        if [ "$ip" != "none" ] && [ "$ip" != "null" ]; then
-          echo "🌐 IP pública: $ip"
-          echo "🔗 URL: http://$ip"
-        else
-          echo "🌐 IP pública: No asignada"
-        fi
+      - echo "📊 Estado de instancia AWS:"
+      - aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].{State:State.Name,IP:PublicIpAddress,Type:InstanceType,LaunchTime:LaunchTime}' --output table
 
   aws:ip:
-    desc: "🌐 Obtener IP pública de la instancia"
+    desc: "🌐 Obtener IP pública"
+    silent: true
     cmds:
-      - |
-        ip=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text 2>/dev/null || echo "none")
-        if [ "$ip" != "none" ] && [ "$ip" != "null" ]; then
-          echo "🌐 IP pública: $ip"
-          echo "🔗 URL: http://$ip"
-        else
-          echo "❌ No hay IP pública asignada (instancia detenida?)"
-        fi
+      - echo "🌐 IP pública:"
+      - aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text
 
   aws:costs:
     desc: "💰 Ver información de costos"
+    silent: true
     cmds:
-      - echo "💰 Información de costos AWS..."
-      - |
-        type=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].InstanceType' --output text 2>/dev/null || echo "unknown")
-        state=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].State.Name' --output text 2>/dev/null || echo "unknown")
-        
-        echo "📦 Tipo de instancia: $type"
-        echo "🔄 Estado actual: $state"
-        echo ""
-        echo "💡 Costos estimados por hora (región us-east-1):"
-        case $type in
-          "t2.micro") echo "   💵 \$0.0116/hora (~\$8.50/mes)" ;;
-          "t2.small") echo "   💵 \$0.023/hora (~\$17/mes)" ;;
-          "t2.medium") echo "   💵 \$0.046/hora (~\$34/mes)" ;;
-          "t3.micro") echo "   💵 \$0.0104/hora (~\$7.60/mes)" ;;
-          "t3.small") echo "   💵 \$0.0208/hora (~\$15/mes)" ;;
-          *) echo "   💵 Consulta AWS Pricing para $type" ;;
-        esac
-        echo ""
-        if [ "$state" = "running" ]; then
-          echo "⚠️ La instancia está EJECUTÁNDOSE - generando costos"
-          echo "💡 Usa 'task aws:stop' para detenerla y ahorrar dinero"
-        else
-          echo "✅ La instancia está DETENIDA - sin costos de cómputo"
-          echo "💡 Usa 'task aws:start' para iniciarla cuando la necesites"
-        fi
+      - echo "💰 Información de costos AWS:"
+      - aws ce get-cost-and-usage --time-period Start=2024-01-01,End=$(date +%Y-%m-%d) --granularity MONTHLY --metrics BlendedCost --group-by Type=DIMENSION,Key=SERVICE
 
   aws:ssh:
-    desc: "🔐 Conectar SSH a la instancia"
+    desc: "🔑 Conectar SSH a la instancia"
+    silent: true
     cmds:
-      - |
-        ip=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text 2>/dev/null || echo "none")
-        if [ "$ip" != "none" ] && [ "$ip" != "null" ]; then
-          echo "🔐 Conectando SSH a $ip..."
-          ssh -i {{.SSH_KEY}} ubuntu@$ip
-        else
-          echo "❌ No se puede conectar: instancia sin IP pública"
-          echo "💡 Usa 'task aws:start' primero"
-        fi
-
-  aws:health:
-    desc: "🏥 Verificar salud de servicios en AWS"
-    cmds:
-      - |
-        ip=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text 2>/dev/null || echo "none")
-        if [ "$ip" != "none" ] && [ "$ip" != "null" ]; then
-          echo "🏥 Verificando salud de servicios en $ip..."
-          if curl -s -I http://$ip | head -1 | grep -q "200\|30[0-9]"; then
-            echo "✅ Aplicación web: OK"
-          else
-            echo "❌ Aplicación web: No responde"
-          fi
-          if curl -s http://$ip/api/health > /dev/null 2>&1; then
-            echo "✅ API Backend: OK"
-          else
-            echo "❌ API Backend: No responde"
-          fi
-        else
-          echo "❌ No se puede verificar: instancia sin IP pública"
-        fi
-
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 🚀 DEPLOYMENT
-  # ═══════════════════════════════════════════════════════════════════════════════
+      - echo "🔑 Conectando SSH..."
+      - ssh -i {{.SSH_KEY}} ubuntu@$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
 
   deploy:aws:
     desc: "🚀 Desplegar a AWS"
+    silent: true
     cmds:
-      - echo "🚀 Desplegando CactusDashboard a AWS..."
+      - echo "🚀 Desplegando a AWS..."
       - task: aws:start
-      - |
-        ip=$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-        echo "📦 Desplegando aplicación en $ip..."
-        
-        if ssh -i {{.SSH_KEY}} -o ConnectTimeout=10 ubuntu@$ip "echo 'Conexión SSH exitosa'" > /dev/null 2>&1; then
-          echo "✅ Conexión SSH establecida"
-          
-          ssh -i {{.SSH_KEY}} ubuntu@$ip "cd /home/ubuntu/CactusDashboard && docker-compose -f docker-compose.prod.yml down"
-          ssh -i {{.SSH_KEY}} ubuntu@$ip "cd /home/ubuntu/CactusDashboard && git pull origin main"
-          ssh -i {{.SSH_KEY}} ubuntu@$ip "cd /home/ubuntu/CactusDashboard && docker-compose -f docker-compose.prod.yml build"
-          ssh -i {{.SSH_KEY}} ubuntu@$ip "cd /home/ubuntu/CactusDashboard && docker-compose -f docker-compose.prod.yml up -d"
-          
-          echo "⏳ Esperando que los servicios estén listos..."
-          sleep 30
-          
-          if curl -s -I http://$ip | head -1 | grep -q "200\|30[0-9]"; then
-            echo "✅ Despliegue exitoso!"
-            echo "🌐 Aplicación disponible en: http://$ip"
-          else
-            echo "❌ Error en el despliegue - la aplicación no responde"
-          fi
-        else
-          echo "❌ Error: No se puede conectar SSH a la instancia"
-        fi
+      - echo "⏳ Esperando que la instancia esté lista..."
+      - sleep 30
+      - echo "📦 Desplegando aplicación..."
+      - ssh -i {{.SSH_KEY}} ubuntu@$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text) "cd /opt/cactus-dashboard && docker-compose pull && docker-compose up -d"
+      - echo "✅ Despliegue completado"
+      - task: aws:ip
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 🔐 OAUTH & AUTENTICACIÓN
-  # ═══════════════════════════════════════════════════════════════════════════════
-
+  # ===== OAUTH Y AUTENTICACIÓN =====
   oauth:verify:
     desc: "🔐 Verificar configuración OAuth"
+    silent: true
     cmds:
       - echo "🔐 Verificando configuración OAuth..."
-      - ./diagnose-oauth.sh
+      - test -n "$GOOGLE_CLIENT_ID" && echo "✅ GOOGLE_CLIENT_ID configurado" || echo "❌ GOOGLE_CLIENT_ID no configurado"
+      - test -n "$GOOGLE_CLIENT_SECRET" && echo "✅ GOOGLE_CLIENT_SECRET configurado" || echo "❌ GOOGLE_CLIENT_SECRET no configurado"
+      - test -n "$NEXTAUTH_URL" && echo "✅ NEXTAUTH_URL configurado" || echo "❌ NEXTAUTH_URL no configurado"
 
   oauth:update:
-    desc: "🔄 Actualizar credenciales OAuth de Google"
+    desc: "🔄 Actualizar credenciales OAuth"
+    silent: true
     cmds:
       - echo "🔄 Actualizando credenciales OAuth..."
-      - ./update-oauth-credentials.sh
+      - echo "Por favor, actualiza las variables de entorno:"
+      - echo "  GOOGLE_CLIENT_ID=tu_nuevo_client_id"
+      - echo "  GOOGLE_CLIENT_SECRET=tu_nuevo_client_secret"
+      - echo "  NEXTAUTH_URL=http://localhost:3000"
 
   oauth:diagnose:
     desc: "🔍 Diagnóstico completo de OAuth"
+    silent: true
     cmds:
       - echo "🔍 Diagnóstico completo de OAuth..."
-      - ./diagnose-oauth-detailed.sh
+      - task: oauth:verify
+      - echo ""
+      - echo "📋 Verificando endpoints:"
+      - curl -s http://localhost:3000/api/auth/providers || echo "❌ Endpoint de providers no disponible"
+      - echo ""
+      - echo "🔧 Configuración NextAuth:"
+      - test -f "cactus-wealth-frontend/.env.local" && echo "✅ .env.local existe" || echo "❌ .env.local no existe"
 
   oauth:test:
     desc: "🧪 Probar configuración OAuth"
+    silent: true
     cmds:
       - echo "🧪 Probando configuración OAuth..."
+      - task: oauth:verify
+      - echo ""
+      - echo "🌐 Abriendo página de login..."
+      - open http://localhost:3000/auth/login || echo "❌ No se pudo abrir el navegador"
+
+  # ===== LIMPIEZA Y MANTENIMIENTO =====
+  cleanup:
+    desc: "🧹 Limpieza completa (puertos + caché)"
+    silent: true
+    cmds:
+      - echo "🧹 Limpieza completa..."
+      - task: cleanup:ports
+      - task: cleanup:frontend
+      - task: cleanup:backend
+      - echo "✅ Limpieza completada"
+
+  cleanup:ports:
+    desc: "🔌 Limpiar puertos ocupados"
+    silent: true
+    cmds:
+      - echo "🔌 Limpiando puertos..."
       - |
-        if [ -f ".env" ]; then
-          echo "✅ Archivo .env encontrado"
-          if grep -q "GOOGLE_CLIENT_ID" .env && grep -q "GOOGLE_CLIENT_SECRET" .env; then
-            echo "✅ Credenciales OAuth configuradas"
-            echo "🌐 Probando endpoint de providers..."
-            if curl -s http://localhost:3000/api/auth/providers > /dev/null; then
-              echo "✅ Endpoint de providers responde"
-            else
-              echo "❌ Endpoint de providers no responde"
-            fi
-          else
-            echo "❌ Credenciales OAuth no configuradas"
-          fi
+        # Si la Podman Machine está corriendo, no matar procesos del host (evita matar gvproxy/qemu)
+        if podman machine list 2>/dev/null | grep -q "cactus-dashboard.*Currently running"; then
+          echo "ℹ️ Podman Machine en ejecución. Saltando kill de puertos del host."
+          echo "   Usa podman-compose down para liberar puertos gestionados por contenedores."
         else
-          echo "❌ Archivo .env no encontrado"
+          lsof -ti:3000 | xargs kill -9 2>/dev/null || echo "✅ Puerto 3000 libre"
+          lsof -ti:8000 | xargs kill -9 2>/dev/null || echo "✅ Puerto 8000 libre"
+          lsof -ti:5432 | xargs kill -9 2>/dev/null || echo "✅ Puerto 5432 libre"
+          lsof -ti:6379 | xargs kill -9 2>/dev/null || echo "✅ Puerto 6379 libre"
         fi
 
-  oauth:monitor:
-    desc: "📊 Monitorear estado OAuth automáticamente"
+  cleanup:frontend:
+    desc: "🧹 Limpiar caché del frontend"
+    silent: true
     cmds:
-      - echo "📊 Monitoreando OAuth (Ctrl+C para detener)..."
-      - ./scripts/monitor-oauth.sh
+      - echo "🧹 Limpiando caché del frontend..."
+      - cd cactus-wealth-frontend && rm -rf .next node_modules/.cache 2>/dev/null || echo "✅ Caché frontend limpio"
 
-  oauth:setup-monitoring:
-    desc: "📊 Configurar monitoreo automático de OAuth"
+  cleanup:backend:
+    desc: "🧹 Limpiar caché del backend"
+    silent: true
     cmds:
-      - echo "📊 Configurando monitoreo automático de OAuth..."
-      - ./scripts/setup-oauth-monitoring.sh
+      - echo "🧹 Limpiando caché del backend..."
+      - cd cactus-wealth-backend && rm -rf __pycache__ .pytest_cache 2>/dev/null || echo "✅ Caché backend limpio"
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # ⚙️ CONFIGURACIÓN & UTILIDADES
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  setup:
-    desc: "⚙️ Configuración inicial del proyecto"
+  cleanup:docker:
+    desc: "🐳 Limpiar Podman (imágenes, contenedores)"
+    silent: true
     cmds:
-      - echo "⚙️ Configuración inicial de CactusDashboard..."
-      - task: docker:check
-      - task: validate
-      - echo "✅ Configuración inicial completada"
+      - echo "🐳 Limpiando Podman..."
+      - podman system prune -f
+      - podman volume prune -f
+      - echo "✅ Podman limpio"
 
-  validate:
-    desc: "✅ Validar toda la configuración"
+  # ===== PODMAN =====
+  podman:check:
+    desc: "🐳 Verificar Podman"
+    silent: true
     cmds:
-      - echo "✅ Validando configuración del proyecto..."
+      - echo "🐳 Verificando Podman..."
+      - podman info >/dev/null 2>&1 && echo "✅ Podman funcionando" || (echo "❌ Podman no funciona" && exit 1)
+
+  podman:ensure:
+    desc: "🔧 Asegurar que Podman esté disponible"
+    silent: true
+    cmds:
+      - echo "🔧 Asegurando disponibilidad de Podman..."
       - |
-        echo "📁 Verificando archivos esenciales:"
-        for file in docker-compose.yml .env Taskfile.yml; do
-          if [ -f "$file" ]; then
-            echo "  ✅ $file"
-          else
-            echo "  ❌ $file (faltante)"
-          fi
-        done
-        
-        echo ""
-        echo "📦 Verificando directorios:"
-        for dir in cactus-wealth-frontend cactus-wealth-backend scripts; do
-          if [ -d "$dir" ]; then
-            echo "  ✅ $dir/"
-          else
-            echo "  ❌ $dir/ (faltante)"
-          fi
-        done
+        if ! podman machine list | grep -q "cactus-dashboard"; then
+          echo "📦 Creando máquina Podman..."
+          podman machine init --cpus 4 --memory 8192 --disk-size 50 cactus-dashboard
+        fi
+      - |
+        if ! podman machine list | grep -q "cactus-dashboard.*Currently running"; then
+          echo "🚀 Iniciando máquina Podman..."
+          podman machine start cactus-dashboard
+        else
+          echo "✅ Máquina ya está ejecutándose"
+        fi
+      - echo "✅ Podman disponible"
 
+  podman:verify:
+    desc: "✅ Verificar configuración de Podman"
+    silent: true
+    cmds:
+      - echo "✅ Verificando configuración de Podman..."
+      - task: podman:check
+      - echo ""
+      - echo "📊 Información de la máquina:"
+      - podman machine list
+      - echo ""
+      - echo "🔧 Configuración:"
+      - podman system connection list
+      - echo ""
+      - echo "💾 Recursos disponibles:"
+      - podman system df
+
+  podman:status:
+    desc: "📊 Estado de la máquina Podman"
+    silent: true
+    cmds:
+      - echo "📊 Estado de la máquina Podman:"
+      - podman machine list
+      - echo ""
+      - echo "🔧 Conexiones activas:"
+      - podman system connection list
+
+  podman:start:
+    desc: "🚀 Iniciar máquina Podman"
+    silent: true
+    cmds:
+      - echo "🚀 Iniciando máquina Podman..."
+      - |
+        if podman machine list | grep -q "cactus-dashboard.*Currently running"; then
+          echo "✅ Máquina ya está ejecutándose"
+        else
+          podman machine start cactus-dashboard
+          echo "✅ Máquina iniciada"
+        fi
+      - task: podman:status
+
+  podman:stop:
+    desc: "⏹️ Detener máquina Podman"
+    silent: true
+    cmds:
+      - echo "⏹️ Deteniendo máquina Podman..."
+      - podman machine stop cactus-dashboard
+      - echo "✅ Máquina detenida"
+
+  podman:restart:
+    desc: "🔄 Reiniciar máquina Podman"
+    silent: true
+    cmds:
+      - echo "🔄 Reiniciando máquina Podman..."
+      - task: podman:stop
+      - task: podman:start
+
+  podman:helper:install:
+    desc: "🔗 Instalar podman-mac-helper (Docker socket compatibility)"
+    silent: true
+    cmds:
+      - echo "🔗 Instalando podman-mac-helper..."
+      - |
+        HELPER="$(brew --prefix podman)/bin/podman-mac-helper";
+        if [ -x "$HELPER" ]; then
+          echo "Usando $HELPER";
+        else
+          echo "❌ podman-mac-helper no encontrado";
+          exit 1;
+        fi
+        if sudo -n "$HELPER" install; then
+          echo "✅ mac-helper instalado";
+        else
+          echo "⚠️  Se requiere sudo interactivo. Ejecuta manualmente: sudo $HELPER install";
+          exit 0;
+        fi
+      - echo "🔄 Reiniciando máquina Podman para aplicar cambios..."
+      - podman machine stop cactus-dashboard || true
+      - podman machine start cactus-dashboard
+      - echo "✅ podman-mac-helper instalado"
+
+  podman:helper:status:
+    desc: "🔗 Estado de compatibilidad Docker API (mac-helper)"
+    silent: true
+    cmds:
+      - |
+        echo "🔗 Verificando estado del socket Docker API...";
+        if test -S /var/run/docker.sock; then
+          echo "✅ /var/run/docker.sock presente (compatibilidad activa)";
+        else
+          echo "ℹ️ /var/run/docker.sock no está enlazado";
+        fi
+        if [ -z "$DOCKER_HOST" ]; then
+          echo "📌 DOCKER_HOST actual: no definido";
+        else
+          echo "📌 DOCKER_HOST actual: $DOCKER_HOST";
+        fi
+        echo "💡 Si no está activo: task podman:helper:install"
+
+  podman:helper:uninstall:
+    desc: "🔗 Desinstalar podman-mac-helper"
+    silent: true
+    cmds:
+      - echo "🔗 Desinstalando podman-mac-helper..."
+      - |
+        HELPER="$(brew --prefix podman)/bin/podman-mac-helper";
+        if sudo -n "$HELPER" uninstall; then
+          echo "✅ mac-helper desinstalado";
+        else
+          echo "⚠️  Se requiere sudo interactivo. Ejecuta manualmente: sudo $HELPER uninstall";
+          exit 0;
+        fi
+      - echo "🔄 Reiniciando máquina Podman para aplicar cambios..."
+      - podman machine stop cactus-dashboard || true
+      - podman machine start cactus-dashboard
+      - echo "✅ podman-mac-helper desinstalado"
+
+  podman:diagnose:
+    desc: "🔍 Diagnóstico completo de Podman"
+    silent: true
+    cmds:
+      - echo "🔍 Diagnóstico completo de Podman..."
+      - task: podman:check
+      - echo ""
+      - echo "📊 Estado de contenedores:"
+      - podman ps -a
+      - echo ""
+      - echo "💾 Uso de recursos:"
+      - podman system df
+      - echo ""
+      - echo "🔧 Configuración de red:"
+      - podman network ls
+      - echo ""
+      - echo "💿 Volúmenes:"
+      - podman volume ls
+
+  podman:cleanup:
+    desc: "🧹 Limpiar recursos de Podman"
+    silent: true
+    cmds:
+      - echo "🧹 Limpiando recursos de Podman..."
+      - podman system prune -f
+      - podman volume prune -f
+      - podman image prune -f
+      - echo "✅ Limpieza completada"
+
+  podman:reset:
+    desc: "🔄 Reset completo de Podman"
+    silent: true
+    cmds:
+      - echo "🔄 Reset completo de Podman..."
+      - echo "⏹️ Intentando detener stack (si aplica)..."
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} down || true'
+      - task: podman:cleanup
+      - podman machine stop cactus-dashboard 2>/dev/null || echo "✅ Máquina ya detenida"
+      - podman machine rm cactus-dashboard 2>/dev/null || echo "✅ Máquina ya eliminada"
+      - podman machine init --cpus 4 --memory 8192 --disk-size 50 cactus-dashboard
+      - podman machine start cactus-dashboard
+      - echo "✅ Reset completado"
+
+  # ===== DOCKER (COMPATIBILIDAD) =====
   docker:check:
-    desc: "🐳 Verificar y asegurar que Docker esté ejecutándose"
+    desc: "🐳 Verificar Docker (alias de Podman)"
+    silent: true
     cmds:
-      - echo "🐳 Verificando Docker..."
-      - ./scripts/check-docker.sh
-
-  docker:setup:
-    desc: "🐳 Configurar Docker Desktop para inicio automático"
-    cmds:
-      - echo "🐳 Configurando Docker Desktop..."
-      - ./scripts/setup-docker-autostart.sh
+      - echo "🐳 Verificando Docker (alias de Podman)..."
+      - docker info >/dev/null 2>&1 && echo "✅ Docker (Podman) funcionando" || (echo "❌ Docker (Podman) no funciona" && exit 1)
 
   docker:diagnose:
-    desc: "🔍 Diagnóstico completo de Docker"
+    desc: "🔍 Diagnóstico de Docker (alias de Podman)"
+    silent: true
     cmds:
-      - echo "🔍 Diagnóstico completo de Docker..."
-      - ./scripts/diagnose-docker.sh
+      - echo "🔍 Diagnóstico de Docker (alias de Podman)..."
+      - task: docker:check
+      - echo ""
+      - echo "📊 Estado de contenedores:"
+      - docker ps -a
+      - echo ""
+      - echo "💾 Uso de recursos:"
+      - docker system df
 
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # ❓ AYUDA & INFORMACIÓN
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  help:
-    desc: "❓ Mostrar ayuda completa y organizada"
+  # ===== TESTING =====
+  test:all:
+    desc: "🧪 Ejecutar todos los tests"
+    silent: true
     cmds:
+      - echo "🧪 Ejecutando todos los tests..."
+      - task: test:backend
+      - task: test:frontend
+
+  test:backend:
+    desc: "🧪 Tests del backend"
+    silent: true
+    cmds:
+      - echo "🧪 Tests del backend..."
+      - cd cactus-wealth-backend && python -m pytest tests/ -v
+
+  test:frontend:
+    desc: "🧪 Tests del frontend"
+    silent: true
+    cmds:
+      - echo "🧪 Tests del frontend..."
+      - cd cactus-wealth-frontend && npm test
+
+  test:integration:
+    desc: "🧪 Tests de integración"
+    silent: true
+    cmds:
+      - echo "🧪 Tests de integración..."
+      - task: dev:stop
+      - task: dev
+      - sleep 30
+      - cd cactus-wealth-backend && python -m pytest tests/integration/ -v
+
+  test:e2e:
+    desc: "🧪 Tests end-to-end"
+    silent: true
+    cmds:
+      - echo "🧪 Tests end-to-end..."
+      - cd cactus-wealth-frontend && npm run e2e
+
+  # ===== UTILIDADES =====
+  setup:
+    desc: "⚙️ Configuración inicial"
+    silent: true
+    cmds:
+      - echo "⚙️ Configuración inicial de CactusDashboard..."
+      - task: setup:podman-compose
+      - task: docker:check
+      - echo "📦 Instalando dependencias..."
+      - cd cactus-wealth-backend && pip install -r requirements.txt
+      - cd cactus-wealth-frontend && npm install
+      - echo "✅ Configuración completada"
+
+  setup:podman-compose:
+    desc: "📦 Instalar y configurar podman-compose"
+    silent: true
+    cmds:
+      - echo "📦 Verificando podman-compose..."
       - |
-        echo "🌵 CACTUS DASHBOARD - SISTEMA TASK UNIFICADO"
-        echo "══════════════════════════════════════════════════════════════════════════════"
-        echo ""
-        echo "🚀 DESARROLLO LOCAL:"
-        echo "  task dev              # Iniciar desarrollo completo"
-        echo "  task dev:frontend     # Iniciar solo frontend"
-        echo "  task dev:stop         # Detener desarrollo"
-        echo "  task dev:restart      # Reiniciar desarrollo"
-        echo "  task dev:rebuild      # Rebuild completo"
-        echo ""
-        echo "📊 MONITOREO Y ESTADO:"
-        echo "  task status           # Estado general del sistema"
-        echo "  task health           # Verificar salud de todos los servicios"
-        echo "  task ports            # Verificar puertos en uso"
-        echo "  task resources        # Mostrar uso de CPU, memoria y disco"
-        echo ""
-        echo "🔍 HEALTH CHECKS GRANULARES:"
-        echo "  task health:services  # Verificar servicios Docker"
-        echo "  task health:endpoints # Verificar endpoints HTTP"
-        echo "  task health:database  # Verificar conexión a base de datos"
-        echo "  task health:auth      # Verificar configuración de autenticación"
-        echo "  task health:resources # Verificar uso de recursos del sistema"
-        echo ""
-        echo "📊 MONITOREO AVANZADO:"
-        echo "  task monitor:continuous      # Monitoreo continuo (sin Docker)"
-        echo "  task monitor:continuous-full # Monitoreo continuo completo"
-        echo "  task monitor:logs           # Monitoreo de logs con filtros"
-        echo ""
-        echo "🔍 DIAGNÓSTICOS AVANZADOS:"
-        echo "  task diagnose:all         # Ejecutar todos los diagnósticos"
-        echo "  task diagnose:network     # Diagnóstico de red y conectividad"
-        echo "  task diagnose:performance # Diagnóstico de rendimiento"
-        echo "  task diagnose:security    # Diagnóstico de seguridad"
-        echo "  task diagnose:dependencies # Diagnóstico de dependencias"
-        echo ""
-        echo "📺 LOGS & DEBUGGING:"
-        echo "  task logs             # Ver logs en vivo (todos los servicios)"
-        echo "  task logs:backend     # Solo logs del backend"
-        echo "  task logs:frontend    # Solo logs del frontend"
-        echo "  task logs:db          # Solo logs de la base de datos"
-        echo "  task debug            # Diagnóstico completo del sistema"
-        echo ""
-        echo "🐚 SHELLS INTERACTIVOS:"
-        echo "  task shell:backend    # Shell en contenedor backend"
-        echo "  task shell:frontend   # Shell en contenedor frontend"
-        echo "  task shell:db         # Shell PostgreSQL"
-        echo ""
-        echo "🧹 LIMPIEZA Y MANTENIMIENTO:"
-        echo "  task cleanup          # Limpiar puertos y cachés"
-        echo "  task cleanup:ports    # Limpiar solo puertos"
-        echo "  task cleanup:frontend # Limpiar caché del frontend"
-        echo ""
-        echo "☁️ AWS MANAGEMENT:"
-        echo "  task aws:start        # Iniciar instancia EC2"
-        echo "  task aws:stop         # Detener instancia (ahorrar dinero)"
-        echo "  task aws:status       # Estado de la instancia EC2"
-        echo "  task aws:ip           # Obtener IP pública actual"
-        echo "  task aws:costs        # Ver información de costos"
-        echo "  task aws:ssh          # Conectar SSH a la instancia"
-        echo "  task aws:health       # Verificar salud de servicios en AWS"
-        echo ""
-        echo "🚀 DEPLOYMENT:"
-        echo "  task deploy:aws       # Desplegar aplicación completa a AWS"
-        echo ""
-        echo "🔐 OAUTH & AUTENTICACIÓN:"
-        echo "  task oauth:verify     # Verificar configuración OAuth"
-        echo "  task oauth:update     # Actualizar credenciales OAuth"
-        echo "  task oauth:diagnose   # Diagnóstico completo de OAuth"
-        echo "  task oauth:test       # Probar configuración OAuth"
-        echo "  task oauth:monitor    # Monitorear estado OAuth automáticamente"
-        echo "  task oauth:setup-monitoring # Configurar monitoreo OAuth"
-        echo ""
-        echo "⚙️ CONFIGURACIÓN & UTILIDADES:"
-        echo "  task setup            # Configuración inicial del proyecto"
-        echo "  task validate         # Validar toda la configuración"
-        echo "  task docker:check     # Verificar Docker"
-        echo "  task docker:setup     # Configurar Docker Desktop"
-        echo "  task docker:diagnose  # Diagnóstico completo de Docker"
-        echo ""
-        echo "❓ AYUDA & INFORMACIÓN:"
-        echo "  task help             # Esta ayuda completa"
-        echo "  task help:quick       # Ayuda rápida (comandos esenciales)"
-        echo "  task --list           # Lista rápida de todos los comandos"
-        echo ""
-        echo "💡 EJEMPLOS DE USO:"
-        echo "  * Desarrollo diario: task dev, task logs, task status, task dev:stop"
-        echo "  * Gestión AWS: task aws:start, task deploy:aws, task aws:stop"
-        echo "  * OAuth: task oauth:diagnose, task oauth:update, task oauth:test"
-        echo "  * Health Checks: task health:endpoints, task health:auth, task health:resources"
-        echo "  * Monitoreo: task monitor:continuous, task diagnose:all"
-        echo "  * Troubleshooting: task debug, task cleanup, task validate, task diagnose:network"
-        echo ""
-        echo "🎉 SISTEMA UNIFICADO:"
-        echo "  ✅ Todos los scripts consolidados en Task"
-        echo "  ✅ Sintaxis consistente: task <comando>"
-        echo "  ✅ Documentación integrada y autocompletado"
-        echo "  ✅ Optimización del 90%+ en tiempos de ejecución"
-        echo ""
-        echo "📚 Documentación: DOCUMENTATION.md, TASK_SYSTEM.md, QUICK_REFERENCE.md"
+        if ! test -f "{{.PODMAN_COMPOSE}}"; then
+          echo "🔧 Instalando podman-compose..."
+          pip3 install podman-compose
+          echo "✅ podman-compose instalado"
+        else
+          echo "✅ podman-compose ya está disponible"
+        fi
+      - echo "🔗 Verificando funcionamiento..."
+      - '{{.PODMAN_COMPOSE}} --version'
+
+  validate:
+    desc: "✅ Validar configuración"
+    silent: true
+    cmds:
+      - echo "✅ Validando configuración..."
+      - task: docker:check
+      - task: oauth:verify
+      - echo "✅ Configuración válida"
+
+  # ===== AYUDA =====
+  help:
+    desc: "❓ Documentación completa"
+    silent: true
+    cmds:
+      - echo "🌵 CactusDashboard - Sistema de Comandos TASK"
+      - echo ""
+      - echo "📚 Documentación completa:"
+      - echo "  DOCUMENTATION.md - Guía completa del proyecto"
+      - echo ""
+      - echo "🚀 Comandos principales:"
+      - echo "  task dev              - Iniciar desarrollo completo"
+      - echo "  task aws:start        - Iniciar instancia AWS"
+      - echo "  task logs             - Ver logs en vivo"
+      - echo "  task debug            - Diagnóstico completo"
+      - echo ""
+      - echo "❓ Para más ayuda:"
+      - echo "  task --list           - Lista de todos los comandos"
+      - echo "  task help:quick       - Ayuda rápida"
 
   help:quick:
-    desc: "⚡ Ayuda rápida - comandos esenciales"
+    desc: "⚡ Ayuda rápida (comandos esenciales)"
+    silent: true
     cmds:
-      - |
-        echo ""
-        echo "⚡ COMANDOS ESENCIALES - CACTUS DASHBOARD"
-        echo "════════════════════════════════════════"
-        echo ""
-        echo "🚀 DESARROLLO:"
-        echo "   task dev              # Iniciar desarrollo"
-        echo "   task dev:stop         # Detener desarrollo"
-        echo "   task logs             # Ver logs en vivo"
-        echo "   task status           # Estado del sistema"
-        echo ""
-        echo "🔍 HEALTH CHECKS:"
-        echo "   task health:endpoints # Verificar endpoints"
-        echo "   task health:auth      # Verificar autenticación"
-        echo "   task diagnose:all     # Diagnóstico completo"
-        echo ""
-        echo "📊 MONITOREO:"
-        echo "   task monitor:continuous # Monitoreo continuo"
-        echo "   task resources        # Uso de recursos"
-        echo ""
-        echo "☁️ AWS:"
-        echo "   task aws:start        # Iniciar instancia EC2"
-        echo "   task aws:stop         # Detener instancia (ahorrar dinero)"
-        echo "   task deploy:aws       # Desplegar a AWS"
-        echo ""
-        echo "🔐 OAUTH:"
-        echo "   task oauth:diagnose   # Diagnóstico OAuth"
-        echo "   task oauth:test       # Probar OAuth"
-        echo "   task oauth:update     # Actualizar credenciales"
-        echo ""
-        echo "🔧 UTILIDADES:"
-        echo "   task debug            # Diagnóstico completo"
-        echo "   task cleanup          # Limpiar puertos"
-        echo "   task help             # Ayuda completa"
-        echo ""
-        echo "💡 Usa 'task help' para ver todos los comandos disponibles"
-        echo ""
-
-  # ═══════════════════════════════════════════════════════════════════════════════
-  # 🔧 TAREAS INTERNAS
-  # ═══════════════════════════════════════════════════════════════════════════════
-
-  _check:docker:
-    desc: "🔍 Verificación interna de Docker"
-    internal: true
-    cmds:
-      - |
-        if ! docker info >/dev/null 2>&1; then
-          echo "❌ Docker no está ejecutándose"
-          echo "💡 Inicia Docker Desktop y vuelve a intentar"
-          exit 1
-        fi
+      - echo "⚡ Comandos esenciales:"
+      - echo ""
+      - echo "🚀 Desarrollo:"
+      - echo "  task dev              - Iniciar desarrollo"
+      - echo "  task dev:stop         - Detener desarrollo"
+      - echo "  task logs             - Ver logs"
+      - echo ""
+      - echo "☁️ AWS:"
+      - echo "  task aws:start        - Iniciar instancia"
+      - echo "  task aws:stop         - Detener instancia"
+      - echo "  task aws:status       - Ver estado"
+      - echo ""
+      - echo "🔧 Utilidades:"
+      - echo "  task debug            - Diagnóstico"
+      - echo "  task cleanup          - Limpiar todo"
+      - echo "  task help             - Ayuda completa"

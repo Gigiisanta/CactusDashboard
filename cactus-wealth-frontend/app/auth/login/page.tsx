@@ -11,12 +11,27 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { useTraditionalAuth } from '@/hooks/useTraditionalAuth';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function AuthLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [credentials, setCredentials] = useState({
+    username: '',
+    password: '',
+  });
+  const [rememberMe, setRememberMe] = useState(false);
+  
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { 
+    login: traditionalLogin, 
+    isLoading: isTraditionalLoading, 
+    error: traditionalError,
+    clearError: clearTraditionalError 
+  } = useTraditionalAuth();
 
   useEffect(() => {
     if (status === 'authenticated' && session) {
@@ -24,8 +39,16 @@ export default function AuthLoginPage() {
     }
   }, [session, status, router]);
 
+  // Clear errors when switching between auth methods
+  useEffect(() => {
+    if (traditionalError) {
+      setError(traditionalError);
+    }
+  }, [traditionalError]);
+
   const handleGoogleSignIn = async () => {
     setError(null);
+    clearTraditionalError();
     setIsLoading(true);
     
     try {
@@ -36,6 +59,46 @@ export default function AuthLoginPage() {
       setIsLoading(false);
     }
   };
+
+  const handleTraditionalLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    
+    // Basic validation
+    if (!credentials.username.trim()) {
+      setError('Por favor, ingresa tu email o nombre de usuario');
+      return;
+    }
+    
+    if (!credentials.password.trim()) {
+      setError('Por favor, ingresa tu contraseña');
+      return;
+    }
+
+    if (credentials.password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    const success = await traditionalLogin(credentials);
+    if (success && rememberMe) {
+      localStorage.setItem('rememberMe', 'true');
+    }
+  };
+
+  const handleInputChange = (field: 'username' | 'password') => (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    setCredentials(prev => ({
+      ...prev,
+      [field]: e.target.value
+    }));
+    // Clear errors when user starts typing
+    if (error) setError(null);
+    if (traditionalError) clearTraditionalError();
+  };
+
+  const isAnyLoading = isLoading || isTraditionalLoading;
 
   return (
     <div className='flex min-h-screen items-center justify-center bg-gradient-to-br from-cactus-50 to-sage-100 p-4'>
@@ -73,7 +136,7 @@ export default function AuthLoginPage() {
                 onClick={handleGoogleSignIn}
                 variant='outline'
                 className='w-full h-12 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200'
-                disabled={isLoading}
+                disabled={isAnyLoading}
               >
                 <svg className='mr-3 h-5 w-5' viewBox='0 0 24 24'>
                   <path
@@ -93,7 +156,14 @@ export default function AuthLoginPage() {
                     d='M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z'
                   />
                 </svg>
-                {isLoading ? 'Iniciando sesión...' : 'Continuar con Google'}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Iniciando sesión...
+                  </>
+                ) : (
+                  'Continuar con Google'
+                )}
               </Button>
 
               <div className='text-center'>
@@ -102,57 +172,100 @@ export default function AuthLoginPage() {
                 </p>
               </div>
 
-              {/* Alternative login form placeholder */}
-              <div className='space-y-3 pt-2'>
-                <div className='text-center'>
-                  <p className='text-sm text-sage-600 mb-3'>
+              {/* Traditional login form */}
+              <form onSubmit={handleTraditionalLogin} className='space-y-4 pt-2'>
+                <div>
+                  <label htmlFor="username" className='block text-sm text-sage-600 mb-2'>
                     Email o Usuario
-                  </p>
+                  </label>
                   <input
+                    id="username"
                     type='text'
                     placeholder='tu@email.com o usuario'
-                    className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cactus-500 focus:border-transparent'
-                    disabled
+                    value={credentials.username}
+                    onChange={handleInputChange('username')}
+                    className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cactus-500 focus:border-transparent transition-all duration-200'
+                    disabled={isAnyLoading}
+                    autoComplete="username"
                   />
                 </div>
                 
-                <div className='text-center'>
-                  <p className='text-sm text-sage-600 mb-3'>
+                <div>
+                  <label htmlFor="password" className='block text-sm text-sage-600 mb-2'>
                     Contraseña
-                  </p>
-                  <input
-                    type='password'
-                    placeholder='Tu contraseña'
-                    className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cactus-500 focus:border-transparent'
-                    disabled
-                  />
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder='Tu contraseña'
+                      value={credentials.password}
+                      onChange={handleInputChange('password')}
+                      className='w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-cactus-500 focus:border-transparent transition-all duration-200'
+                      disabled={isAnyLoading}
+                      autoComplete="current-password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-sage-400 hover:text-sage-600"
+                      disabled={isAnyLoading}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="h-4 w-4 text-cactus-600 focus:ring-cactus-500 border-gray-300 rounded"
+                      disabled={isAnyLoading}
+                    />
+                    <span className="ml-2 text-sm text-sage-600">Recordarme</span>
+                  </label>
                 </div>
 
                 <Button
+                  type="submit"
                   variant='default'
-                  className='w-full bg-cactus-600 hover:bg-cactus-700 text-white'
-                  disabled
+                  className='w-full bg-cactus-600 hover:bg-cactus-700 text-white transition-all duration-200'
+                  disabled={isAnyLoading || !credentials.username.trim() || !credentials.password.trim()}
                 >
-                  Iniciar Sesión
+                  {isTraditionalLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Iniciando sesión...
+                    </>
+                  ) : (
+                    'Iniciar Sesión'
+                  )}
                 </Button>
 
-                <div className='text-center'>
+                <div className='text-center space-y-1'>
                   <p className='text-xs text-sage-400'>
                     ¿No tienes una cuenta? <span className='text-cactus-600 cursor-pointer hover:underline'>Regístrate aquí</span>
                   </p>
-                  <p className='text-xs text-sage-400 mt-1'>
+                  <p className='text-xs text-sage-400'>
                     ¿Olvidaste tu contraseña? <span className='text-cactus-600 cursor-pointer hover:underline'>Recupérala</span>
                   </p>
                 </div>
-              </div>
+              </form>
             </div>
 
             <div className='mt-6 pt-4 border-t border-gray-200'>
               <p className='text-xs text-center text-sage-500'>
-                Solo se permite el acceso con cuentas autorizadas de Google
+                Acceso seguro con múltiples métodos de autenticación
               </p>
               <p className='text-xs text-center text-sage-400 mt-1'>
-                Versión de autenticación mejorada
+                Google OAuth • Credenciales tradicionales • Autenticación mejorada
               </p>
             </div>
           </CardContent>
