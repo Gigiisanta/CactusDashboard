@@ -1,19 +1,16 @@
-import os
-import sys
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 import pytest
-from fastapi import FastAPI, Depends
-from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
-from sqlalchemy import MetaData
 import sqlalchemy
+from fastapi.testclient import TestClient
+from sqlmodel import Session
 
-from cactus_wealth.api.v1.api import api_router
-from cactus_wealth.database import get_session as global_get_session
-from cactus_wealth.security import create_access_token
-from cactus_wealth.models import InvestmentAccount, InsurancePolicy, Client, User, Portfolio, Position, Asset, ClientNote, ClientActivity, Notification, ModelPortfolio, ModelPortfolioPosition
 import cactus_wealth.test_utils as test_utils
+from cactus_wealth.security import create_access_token
+
+if TYPE_CHECKING:
+    from cactus_wealth.models import Client, User
 
 # Eliminar imports y fixtures locales de engine/session/app/client
 # Usar solo la fixture global 'session' y 'test_client' de conftest.py

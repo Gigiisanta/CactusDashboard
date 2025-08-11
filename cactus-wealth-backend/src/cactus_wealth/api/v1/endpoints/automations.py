@@ -39,7 +39,7 @@ async def trigger_full_sync() -> dict[str, str]:
         # For now, just return success
         return {"message": "Full sync triggered successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to trigger sync: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to trigger sync: {str(e)}") from e
 
 
 @router.post("/send-test-email")
@@ -52,4 +52,4 @@ async def send_test_email() -> dict[str, str]:
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to send test email: {str(e)}"
-        )
+        ) from e

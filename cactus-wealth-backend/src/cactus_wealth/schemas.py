@@ -1,6 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Generator, Callable, Any, Optional, List, Dict
+from typing import TYPE_CHECKING, Any
+
+from pydantic import BaseModel, EmailStr
 
 from cactus_wealth.models import (
     ActivityType,
@@ -10,7 +12,9 @@ from cactus_wealth.models import (
     RiskProfile,
     UserRole,
 )
-from pydantic import BaseModel, EmailStr
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
 
 
 class UserCreate(BaseModel):
@@ -634,11 +638,11 @@ class CredentialCreate(BaseModel):
     credential_id: str
     public_key: bytes
     sign_count: int
-    transports: Optional[List[str]] = None
-    aaguid: Optional[str] = None
+    transports: list[str] | None = None
+    aaguid: str | None = None
     backup_eligible: bool = False
     backup_state: bool = False
-    device_type: Optional[str] = None
+    device_type: str | None = None
 
 
 class CredentialRead(BaseModel):
@@ -648,13 +652,13 @@ class CredentialRead(BaseModel):
     user_id: int
     credential_id: str
     sign_count: int
-    transports: Optional[List[str]] = None
-    aaguid: Optional[str] = None
+    transports: list[str] | None = None
+    aaguid: str | None = None
     backup_eligible: bool
     backup_state: bool
-    device_type: Optional[str] = None
+    device_type: str | None = None
     created_at: datetime
-    last_used_at: Optional[datetime] = None
+    last_used_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -667,26 +671,26 @@ class CredentialAuthenticate(BaseModel):
     authenticator_data: str
     client_data_json: str
     signature: str
-    user_handle: Optional[str] = None
+    user_handle: str | None = None
 
 
 class RegistrationOptionsRequest(BaseModel):
     """Schema for registration options request."""
 
-    username: Optional[str] = None
-    display_name: Optional[str] = None
+    username: str | None = None
+    display_name: str | None = None
 
 
 class RegistrationOptionsResponse(BaseModel):
     """Schema for registration options response."""
 
     challenge: str
-    rp: Dict[str, Any]
-    user: Dict[str, Any]
-    pub_key_cred_params: List[Dict[str, Any]]
+    rp: dict[str, Any]
+    user: dict[str, Any]
+    pub_key_cred_params: list[dict[str, Any]]
     timeout: int
-    exclude_credentials: List[Dict[str, Any]]
-    authenticator_selection: Dict[str, Any]
+    exclude_credentials: list[dict[str, Any]]
+    authenticator_selection: dict[str, Any]
     attestation: str
 
 
@@ -696,13 +700,13 @@ class RegistrationVerificationRequest(BaseModel):
     credential_id: str
     attestation_object: str
     client_data_json: str
-    transports: Optional[List[str]] = None
+    transports: list[str] | None = None
 
 
 class AuthenticationOptionsRequest(BaseModel):
     """Schema for authentication options request."""
 
-    username: Optional[str] = None
+    username: str | None = None
 
 
 class AuthenticationOptionsResponse(BaseModel):
@@ -711,7 +715,7 @@ class AuthenticationOptionsResponse(BaseModel):
     challenge: str
     timeout: int
     rp_id: str
-    allow_credentials: List[Dict[str, Any]]
+    allow_credentials: list[dict[str, Any]]
     user_verification: str
 
 
@@ -722,7 +726,7 @@ class AuthenticationVerificationRequest(BaseModel):
     authenticator_data: str
     client_data_json: str
     signature: str
-    user_handle: Optional[str] = None
+    user_handle: str | None = None
 
 
 class PasskeyLoginResponse(BaseModel):
@@ -730,4 +734,4 @@ class PasskeyLoginResponse(BaseModel):
 
     access_token: str
     token_type: str
-    user: Dict[str, Any]
+    user: dict[str, Any]

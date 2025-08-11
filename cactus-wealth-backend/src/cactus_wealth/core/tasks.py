@@ -1,9 +1,10 @@
 import structlog
 from sqlmodel import Session
-from cactus_wealth.database import engine
-from cactus_wealth.repositories import ClientRepository
+
 from cactus_wealth import services
 from cactus_wealth.core.dataprovider import MarketDataProvider
+from cactus_wealth.database import engine
+from cactus_wealth.repositories import ClientRepository
 
 logger = structlog.get_logger(__name__)
 

@@ -8,7 +8,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from cactus_wealth.database import get_session
+from fastapi.testclient import TestClient
+from sqlmodel import Session  # Solo para type hints si es necesario
+
 from cactus_wealth.models import (
     Asset,
     AssetType,
@@ -22,10 +24,6 @@ from cactus_wealth.models import (
     UserRole,
 )
 from cactus_wealth.security import create_access_token
-from fastapi.testclient import TestClient
-from main import app
-from sqlmodel import Session  # Solo para type hints si es necesario
-
 
 # Eliminar fixtures locales de session y client, y usar las globales de conftest.py
 # Eliminar imports innecesarios
@@ -226,7 +224,7 @@ def test_dashboard_summary_admin_user(
 
     # Should have AUM calculated (though exact value depends on market data mock)
     assert "assets_under_management" in data
-    assert isinstance(data["assets_under_management"], (int, float))
+    assert isinstance(data["assets_under_management"], int | float)
     assert data["assets_under_management"] >= 0
 
     # Monthly growth should be None (TODO)
@@ -257,7 +255,7 @@ def test_dashboard_summary_advisor_user(
 
     # Should have AUM calculated for advisor's client only
     assert "assets_under_management" in data
-    assert isinstance(data["assets_under_management"], (int, float))
+    assert isinstance(data["assets_under_management"], int | float)
     assert data["assets_under_management"] >= 0
 
     # Monthly growth should be None (TODO)
@@ -317,9 +315,9 @@ def test_dashboard_summary_response_schema(
 
     # Check field types
     assert isinstance(data["total_clients"], int)
-    assert isinstance(data["assets_under_management"], (int, float))
+    assert isinstance(data["assets_under_management"], int | float)
     assert data["monthly_growth_percentage"] is None or isinstance(
-        data["monthly_growth_percentage"], (int, float)
+        data["monthly_growth_percentage"], int | float
     )
     assert isinstance(data["reports_generated_this_quarter"], int)
 

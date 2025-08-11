@@ -4,12 +4,13 @@ from unittest.mock import AsyncMock, Mock, patch
 import numpy as np
 import pandas as pd
 import pytest
+
+import cactus_wealth.services as services
 from cactus_wealth.schemas import (
     BacktestRequest,
     BacktestResponse,
     PortfolioComposition,
 )
-import cactus_wealth.services as services
 
 
 class TestPortfolioBacktestService:
@@ -196,7 +197,7 @@ class TestPortfolioBacktestService:
         backtest_service.redis_client = mock_redis
 
         # Test with Series (normal case)
-        test_series = pd.Series(
+        pd.Series(
             [100, 101, 102], index=pd.date_range("2023-01-01", periods=3)
         )
 

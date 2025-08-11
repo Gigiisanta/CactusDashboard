@@ -2,12 +2,10 @@
 Investment account management endpoints.
 """
 
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from cactus_wealth.database import get_db
-from cactus_wealth.models import InvestmentAccount
 from cactus_wealth.repositories import InvestmentAccountRepository
 
 router = APIRouter()
@@ -21,7 +19,7 @@ async def get_investment_accounts(db: Session = Depends(get_db)):
         investment_accounts = investment_account_repo.get_all()
         return {"investment_accounts": investment_accounts}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/investment-accounts/{account_id}")
@@ -36,7 +34,7 @@ async def get_investment_account(account_id: int, db: Session = Depends(get_db))
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/investment-accounts/client/{client_id}")
@@ -47,7 +45,7 @@ async def get_client_investment_accounts(client_id: int, db: Session = Depends(g
         investment_accounts = investment_account_repo.get_by_client_id(client_id)
         return {"investment_accounts": investment_accounts}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/investment-accounts")
@@ -58,7 +56,7 @@ async def create_investment_account(investment_account_data: dict, db: Session =
         investment_account = investment_account_repo.create(investment_account_data)
         return investment_account
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/investment-accounts/{account_id}")
@@ -73,7 +71,7 @@ async def update_investment_account(account_id: int, investment_account_data: di
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/investment-accounts/{account_id}")
@@ -88,4 +86,4 @@ async def delete_investment_account(account_id: int, db: Session = Depends(get_d
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e)) from e

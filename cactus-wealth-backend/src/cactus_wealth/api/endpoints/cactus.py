@@ -2,25 +2,39 @@
 API endpoints for Cactus module.
 Handles all HTTP requests for Ideas, Content Matrix, Video Slots, Library, External Links and Secure Credentials.
 """
+# ruff: noqa: ARG001
 
-from typing import List, Optional, Dict, Any
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session
 
 from ...database import get_session
-from ...security import get_current_user, require_role
 from ...models import User, UserRole
-from ...services.cactus_service import CactusService
 from ...schemas import (
-    CactusIdeaCreate, CactusIdeaUpdate, CactusIdeaRead,
-    CactusContentMatrixCreate, CactusContentMatrixUpdate, CactusContentMatrixRead,
-    CactusVideoSlotCreate, CactusVideoSlotUpdate, CactusVideoSlotRead,
-    CactusLibraryCreate, CactusLibraryUpdate, CactusLibraryRead,
-    CactusExternalLinkCreate, CactusExternalLinkUpdate, CactusExternalLinkRead,
-    CactusSecureCredentialCreate, CactusSecureCredentialUpdate, CactusSecureCredentialRead,
-    CactusSecureCredentialValue
+    CactusContentMatrixCreate,
+    CactusContentMatrixRead,
+    CactusContentMatrixUpdate,
+    CactusExternalLinkCreate,
+    CactusExternalLinkRead,
+    CactusExternalLinkUpdate,
+    CactusIdeaCreate,
+    CactusIdeaRead,
+    CactusIdeaUpdate,
+    CactusLibraryCreate,
+    CactusLibraryRead,
+    CactusLibraryUpdate,
+    CactusSecureCredentialCreate,
+    CactusSecureCredentialRead,
+    CactusSecureCredentialUpdate,
+    CactusSecureCredentialValue,
+    CactusVideoSlotCreate,
+    CactusVideoSlotRead,
+    CactusVideoSlotUpdate,
 )
+from ...security import get_current_user, require_role
+from ...services.cactus_service import CactusService
 
 router = APIRouter(prefix="/cactus", tags=["cactus"])
 
@@ -32,7 +46,7 @@ def get_cactus_service(session: Session = Depends(get_session)) -> CactusService
 
 # ==================== DASHBOARD ====================
 
-@router.get("/dashboard", response_model=Dict[str, Any])
+@router.get("/dashboard", response_model=dict[str, Any])
 async def get_cactus_dashboard(
     current_user: User = Depends(get_current_user),
     cactus_service: CactusService = Depends(get_cactus_service)
@@ -53,9 +67,9 @@ async def create_idea(
     return cactus_service.create_idea(idea_data, current_user.id)
 
 
-@router.get("/ideas", response_model=List[CactusIdeaRead])
+@router.get("/ideas", response_model=list[CactusIdeaRead])
 async def get_all_ideas(
-    status_filter: Optional[str] = Query(None, description="Filter by idea status"),
+    status_filter: str | None = Query(None, description="Filter by idea status"),
     current_user: User = Depends(get_current_user),
     cactus_service: CactusService = Depends(get_cactus_service)
 ):
@@ -65,7 +79,7 @@ async def get_all_ideas(
     return cactus_service.get_all_ideas()
 
 
-@router.get("/ideas/my", response_model=List[CactusIdeaRead])
+@router.get("/ideas/my", response_model=list[CactusIdeaRead])
 async def get_my_ideas(
     current_user: User = Depends(get_current_user),
     cactus_service: CactusService = Depends(get_cactus_service)
@@ -150,9 +164,9 @@ async def create_content_matrix(
     return cactus_service.create_content_matrix(content_data, current_user.id)
 
 
-@router.get("/content-matrix", response_model=List[CactusContentMatrixRead])
+@router.get("/content-matrix", response_model=list[CactusContentMatrixRead])
 async def get_all_content_matrix(
-    category_filter: Optional[str] = Query(None, description="Filter by content category"),
+    category_filter: str | None = Query(None, description="Filter by content category"),
     current_user: User = Depends(get_current_user),
     cactus_service: CactusService = Depends(get_cactus_service)
 ):
@@ -221,11 +235,11 @@ async def create_video_slot(
     return cactus_service.create_video_slot(video_data, current_user.id)
 
 
-@router.get("/video-slots", response_model=List[CactusVideoSlotRead])
+@router.get("/video-slots", response_model=list[CactusVideoSlotRead])
 async def get_all_video_slots(
-    platform_filter: Optional[str] = Query(None, description="Filter by platform"),
-    start_date: Optional[date] = Query(None, description="Start date filter"),
-    end_date: Optional[date] = Query(None, description="End date filter"),
+    platform_filter: str | None = Query(None, description="Filter by platform"),
+    start_date: date | None = Query(None, description="Start date filter"),
+    end_date: date | None = Query(None, description="End date filter"),
     current_user: User = Depends(get_current_user),
     cactus_service: CactusService = Depends(get_cactus_service)
 ):
@@ -296,10 +310,10 @@ async def create_library_item(
     return cactus_service.create_library_item(library_data, current_user.id)
 
 
-@router.get("/library", response_model=List[CactusLibraryRead])
+@router.get("/library", response_model=list[CactusLibraryRead])
 async def get_all_library_items(
-    type_filter: Optional[str] = Query(None, description="Filter by library type"),
-    search: Optional[str] = Query(None, description="Search in title, author, or description"),
+    type_filter: str | None = Query(None, description="Filter by library type"),
+    search: str | None = Query(None, description="Search in title, author, or description"),
     current_user: User = Depends(get_current_user),
     cactus_service: CactusService = Depends(get_cactus_service)
 ):
@@ -370,7 +384,7 @@ async def create_external_link(
     return cactus_service.create_external_link(link_data, current_user.id)
 
 
-@router.get("/external-links", response_model=List[CactusExternalLinkRead])
+@router.get("/external-links", response_model=list[CactusExternalLinkRead])
 async def get_all_external_links(
     active_only: bool = Query(False, description="Get only active links"),
     current_user: User = Depends(get_current_user),
@@ -417,7 +431,7 @@ async def update_external_link(
 
 @router.post("/external-links/reorder", status_code=status.HTTP_204_NO_CONTENT)
 async def reorder_external_links(
-    link_positions: List[Dict[str, int]],
+    link_positions: list[dict[str, int]],
     current_user: User = Depends(require_role([UserRole.GOD, UserRole.ADMIN])),
     cactus_service: CactusService = Depends(get_cactus_service)
 ):
@@ -461,9 +475,9 @@ async def create_secure_credential(
     return credential
 
 
-@router.get("/secure-credentials", response_model=List[CactusSecureCredentialRead])
+@router.get("/secure-credentials", response_model=list[CactusSecureCredentialRead])
 async def get_all_secure_credentials(
-    category_filter: Optional[str] = Query(None, description="Filter by category"),
+    category_filter: str | None = Query(None, description="Filter by category"),
     current_user: User = Depends(require_role([UserRole.GOD, UserRole.ADMIN, UserRole.MANAGER, UserRole.ADVISOR, UserRole.SENIOR_ADVISOR])),
     cactus_service: CactusService = Depends(get_cactus_service)
 ):

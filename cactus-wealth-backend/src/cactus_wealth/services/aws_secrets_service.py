@@ -5,7 +5,7 @@ Handles secure credential storage and retrieval.
 
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Any
 
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
@@ -35,15 +35,15 @@ class AWSSecretsService:
             logger.error(f"Failed to initialize AWS Secrets Manager client: {e}")
             self.client = None
 
-    def create_secret(self, secret_name: str, secret_value: Dict[str, Any], description: str = "") -> bool:
+    def create_secret(self, secret_name: str, secret_value: dict[str, Any], description: str = "") -> bool:
         """
         Create a new secret in AWS Secrets Manager.
-        
+
         Args:
             secret_name: Name of the secret
             secret_value: Dictionary containing the secret data
             description: Optional description for the secret
-            
+
         Returns:
             bool: True if successful, False otherwise
         """
@@ -71,13 +71,13 @@ class AWSSecretsService:
             logger.error(f"Unexpected error creating secret '{secret_name}': {e}")
             return False
 
-    def get_secret(self, secret_name: str) -> Optional[Dict[str, Any]]:
+    def get_secret(self, secret_name: str) -> dict[str, Any] | None:
         """
         Retrieve a secret from AWS Secrets Manager.
-        
+
         Args:
             secret_name: Name of the secret to retrieve
-            
+
         Returns:
             Dict containing the secret data, or None if not found
         """
@@ -99,46 +99,46 @@ class AWSSecretsService:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Secret '{secret_name}' not found"
-                )
+                ) from e
             elif error_code == 'InvalidRequestException':
                 logger.error(f"Invalid request for secret '{secret_name}': {e}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid secret request"
-                )
+                ) from e
             elif error_code == 'InvalidParameterException':
                 logger.error(f"Invalid parameter for secret '{secret_name}': {e}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid secret parameter"
-                )
+                ) from e
             else:
                 logger.error(f"Failed to retrieve secret '{secret_name}': {e}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail="Failed to retrieve secret"
-                )
+                ) from e
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse secret '{secret_name}' as JSON: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Invalid secret format"
-            )
+            ) from e
         except Exception as e:
             logger.error(f"Unexpected error retrieving secret '{secret_name}': {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Unexpected error retrieving secret"
-            )
+            ) from e
 
-    def update_secret(self, secret_name: str, secret_value: Dict[str, Any]) -> bool:
+    def update_secret(self, secret_name: str, secret_value: dict[str, Any]) -> bool:
         """
         Update an existing secret in AWS Secrets Manager.
-        
+
         Args:
             secret_name: Name of the secret to update
             secret_value: New secret data
-            
+
         Returns:
             bool: True if successful, False otherwise
         """
@@ -168,11 +168,11 @@ class AWSSecretsService:
     def delete_secret(self, secret_name: str, force_delete: bool = False) -> bool:
         """
         Delete a secret from AWS Secrets Manager.
-        
+
         Args:
             secret_name: Name of the secret to delete
             force_delete: If True, delete immediately without recovery window
-            
+
         Returns:
             bool: True if successful, False otherwise
         """
@@ -188,7 +188,7 @@ class AWSSecretsService:
                 )
             else:
                 self.client.delete_secret(SecretId=secret_name)
-            
+
             logger.info(f"Secret '{secret_name}' deleted successfully")
             return True
         except ClientError as e:
@@ -206,10 +206,10 @@ class AWSSecretsService:
     def list_secrets(self, prefix: str = "cactus-") -> list[str]:
         """
         List all secrets with a given prefix.
-        
+
         Args:
             prefix: Prefix to filter secrets
-            
+
         Returns:
             List of secret names
         """
@@ -232,7 +232,7 @@ class AWSSecretsService:
     def test_connection(self) -> bool:
         """
         Test the connection to AWS Secrets Manager.
-        
+
         Returns:
             bool: True if connection is working, False otherwise
         """

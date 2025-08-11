@@ -8,6 +8,11 @@
  * - Reconnexión automática
  */
 
+// Gate debug logs in browser to avoid noise in production. Enable with NEXT_PUBLIC_DEBUG_WS=true
+const DEBUG_WS: boolean = process.env.NODE_ENV !== 'production' && (
+  process.env.NEXT_PUBLIC_DEBUG_WS === 'true' || process.env.NODE_ENV === 'development'
+);
+
 interface WebSocketMessage {
   type: string;
   data?: any;
@@ -48,6 +53,20 @@ class WebSocketService {
   private pongReceived = true;
   private connectionHealthy = true;
 
+  private debugLog(message: string): void {
+    if (DEBUG_WS) {
+      // eslint-disable-next-line no-console
+      console.log(message);
+    }
+  }
+
+  private debugWarn(message: string): void {
+    if (DEBUG_WS) {
+      // eslint-disable-next-line no-console
+      console.warn(message);
+    }
+  }
+
   // URLs del WebSocket
   private getWebSocketUrl(): string {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -65,7 +84,7 @@ class WebSocketService {
    */
   async connect(authToken: string): Promise<boolean> {
     if (this.isConnecting || this.websocket?.readyState === WebSocket.OPEN) {
-      console.log('🔗 WebSocket: Already connected or connecting');
+      this.debugLog('🔗 WebSocket: Already connected or connecting');
       return true;
     }
 
@@ -75,7 +94,7 @@ class WebSocketService {
 
     try {
       const wsUrl = `${this.getWebSocketUrl()}?token=${authToken}`;
-      console.log(`🔗 WebSocket: Connecting to ${wsUrl}`);
+      this.debugLog(`🔗 WebSocket: Connecting to ${wsUrl}`);
 
       this.websocket = new WebSocket(wsUrl);
 
@@ -133,7 +152,7 @@ class WebSocketService {
    * Desconecta el WebSocket
    */
   disconnect(): void {
-    console.log('🔗 WebSocket: Disconnecting...');
+    this.debugLog('🔗 WebSocket: Disconnecting...');
     
     this.reconnectAttempts = 0;
     this.isConnecting = false;
@@ -194,7 +213,7 @@ class WebSocketService {
       // WebSocket: Message sent: ${message.type}
       return true;
     } else {
-      console.error('🔗 WebSocket: No se puede enviar, conexión no disponible');
+    console.error('🔗 WebSocket: No se puede enviar, conexión no disponible');
       return false;
     }
   }
@@ -268,7 +287,7 @@ class WebSocketService {
    * Fuerza una reconexión inmediata
    */
   forceReconnect(): void {
-    console.log('🔗 WebSocket: Forcing reconnection...');
+    this.debugLog('🔗 WebSocket: Forcing reconnection...');
     if (this.websocket) {
       this.websocket.close(1000, 'Forced reconnection');
     }
@@ -297,14 +316,14 @@ class WebSocketService {
   private handleMessage(event: MessageEvent): void {
     try {
       const message: WebSocketMessage = JSON.parse(event.data);
-      console.log(`🔗 WebSocket: Message received: ${message.type}`);
+      this.debugLog(`🔗 WebSocket: Message received: ${message.type}`);
 
       // Manejar tipos especiales de mensajes
       switch (message.type) {
         case 'connection_established':
           this.connectionEstablished = true;
           this.connectionHealthy = true;
-          console.log('🔗 WebSocket: Connection confirmed by server');
+          this.debugLog('🔗 WebSocket: Connection confirmed by server');
           break;
 
         case 'pong':
@@ -314,17 +333,17 @@ class WebSocketService {
           break;
 
         case 'notification':
-          console.log('🔔 WebSocket: New notification received');
+          this.debugLog('🔔 WebSocket: New notification received');
           this.emit('notification', message.data);
           break;
 
         case 'kpi_update':
-          console.log('📊 WebSocket: KPI update');
+          this.debugLog('📊 WebSocket: KPI update');
           this.emit('kpi_update', message.data);
           break;
 
         case 'connection_stats':
-          console.log('📈 WebSocket: Connection statistics');
+          this.debugLog('📈 WebSocket: Connection statistics');
           this.emit('connection_stats', message.data);
           break;
 
@@ -428,7 +447,7 @@ class WebSocketService {
     const jitter = Math.random() * 1000;
     const finalDelay = delay + jitter;
 
-    console.log(`🔗 WebSocket: Retrying connection in ${Math.round(finalDelay)}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    this.debugLog(`🔗 WebSocket: Retrying connection in ${Math.round(finalDelay)}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
     this.emit('reconnecting', {
       attempt: this.reconnectAttempts,
@@ -438,13 +457,13 @@ class WebSocketService {
 
     this.reconnectTimeout = setTimeout(() => {
       if (this.token && !this.isConnected()) {
-        console.log(`🔗 WebSocket: Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+        this.debugLog(`🔗 WebSocket: Attempting reconnection ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
         this.connect(this.token).then(success => {
           if (success) {
-            console.log('🔗 WebSocket: Reconnection successful');
+            this.debugLog('🔗 WebSocket: Reconnection successful');
             this.emit('reconnected', { attempt: this.reconnectAttempts });
           } else {
-            console.warn('🔗 WebSocket: Reconnection failed');
+            this.debugWarn('🔗 WebSocket: Reconnection failed');
           }
         });
       }

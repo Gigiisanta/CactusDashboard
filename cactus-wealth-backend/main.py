@@ -98,7 +98,9 @@ app.middleware("http")(add_security_headers)
 
 @app.on_event("startup")
 def startup_event():
-    create_tables()
+    # Avoid implicit DDL outside Alembic unless explicitly requested
+    if settings.CREATE_TABLES_ON_STARTUP or settings.TESTING:
+        create_tables()
 
 
 @app.exception_handler(Exception)
@@ -141,7 +143,10 @@ async def root_health():
     """Root health check endpoint."""
     return {
         "status": "healthy",
-        "message": "Cactus Wealth API is running"
+        "message": "Cactus Wealth API is running",
+        "timestamp": time.time(),
+        "version": settings.VERSION,
+        "service": "cactus-wealth-backend",
     }
 
 

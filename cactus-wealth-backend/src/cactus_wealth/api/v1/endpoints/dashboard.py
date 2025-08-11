@@ -1,16 +1,17 @@
-from typing import Annotated
 
-from cactus_wealth import schemas
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlmodel import Session
+
+from cactus_wealth import schemas, services
 from cactus_wealth.core.dataprovider import MarketDataProvider, get_market_data_provider
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User, UserRole
-from cactus_wealth.security import get_current_user
-from cactus_wealth import services
-from cactus_wealth.services.dashboard_service import DashboardService as NewDashboardService
-from cactus_wealth.repositories.user_repository import UserRepository
 from cactus_wealth.repositories.client_repository import ClientRepository
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session
+from cactus_wealth.repositories.user_repository import UserRepository
+from cactus_wealth.security import get_current_user
+from cactus_wealth.services.dashboard_service import (
+    DashboardService as NewDashboardService,
+)
 
 router = APIRouter()
 
@@ -48,14 +49,14 @@ def get_dashboard_summary(
         # For Manager and Advisor roles, use the new service
         if current_user.role in [UserRole.MANAGER, UserRole.ADVISOR]:
             return new_dashboard_service.get_dashboard_metrics(current_user.id, current_user.role)
-        
+
         # For other roles, use the existing service
         summary = dashboard_service.get_dashboard_summary(current_user)
         return summary
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to calculate dashboard summary: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/aum-history")
@@ -72,4 +73,4 @@ def get_aum_history(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to get AUM history: {str(e)}"
-        )
+        ) from e

@@ -1,23 +1,26 @@
 import asyncio
 import hashlib
 import json
+import os
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-import os
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import redis
 import yfinance as yf
+from fastapi import HTTPException, UploadFile, status
+from jinja2 import Environment, FileSystemLoader
+from sqlmodel import Session, func, select
+
 from cactus_wealth import schemas
 from cactus_wealth.core.config import settings
 from cactus_wealth.core.dataprovider import MarketDataProvider
 from cactus_wealth.models import (
     Asset,
     Client,
-    InsurancePolicy,
     InvestmentAccount,
     Notification,
     Portfolio,
@@ -31,7 +34,6 @@ from cactus_wealth.repositories import (
     AssetRepository,
     ClientRepository,
     InvestmentAccountRepository,
-    InsurancePolicyRepository,
     NotificationRepository,
     PortfolioRepository,
 )
@@ -41,11 +43,8 @@ from cactus_wealth.schemas import (
     BacktestResponse,
     PortfolioComposition,
 )
-from jinja2 import Environment, FileSystemLoader
-from sqlmodel import Session, func, select
+
 from .core.logging_config import get_structured_logger
-from pydantic import BaseModel
-from fastapi import HTTPException, status, UploadFile
 
 # Import webhook system
 # import sys
@@ -71,7 +70,7 @@ class CactusWebhookService:
         if not self.redis_client:
             logger.warning("Redis not available, skipping event emission")
             return False
-            
+
         event = {
             "event": event_type,
             "payload": client_data,
@@ -109,7 +108,7 @@ class CactusWebhookService:
             "created_at": client.created_at.isoformat() if client.created_at else None,
             "updated_at": client.updated_at.isoformat() if client.updated_at else None,
         }
-        
+
         # Queue for Redis processing
         self.emit_client_event("client.created", client_data)
         logger.info("client_created_event_emitted", client_id=client.id)
@@ -140,7 +139,7 @@ class CactusWebhookService:
             "created_at": client.created_at.isoformat() if client.created_at else None,
             "updated_at": client.updated_at.isoformat() if client.updated_at else None,
         }
-        
+
         # Queue for Redis processing
         self.emit_client_event("client.updated", client_data)
         logger.info("client_updated_event_emitted", client_id=client.id)
@@ -265,7 +264,7 @@ class PortfolioService:
                 # For now, we'll re-raise the exception
                 raise Exception(
                     f"Failed to valuate position {position.asset.ticker_symbol}: {str(e)}"
-                )
+                ) from e
 
         # Calculate P&L
         total_pnl = total_value - total_cost_basis
@@ -351,7 +350,7 @@ class PortfolioService:
             logger.error(
                 f"Failed to create snapshot for portfolio {portfolio_id}: {str(e)}"
             )
-            raise ValueError(f"Failed to create portfolio snapshot: {str(e)}")
+            raise ValueError(f"Failed to create portfolio snapshot: {str(e)}") from e
 
 
 class ReportService:
@@ -379,7 +378,7 @@ class ReportService:
         )
 
     def generate_portfolio_report_pdf(
-        self, valuation_data: schemas.PortfolioValuation, portfolio_name: str
+        self, valuation_data: schemas.PortfolioValuation, _portfolio_name: str
     ) -> bytes:
         """
         Generate a PDF report for portfolio valuation.
@@ -481,7 +480,7 @@ class ReportService:
             except ImportError as e:
                 raise Exception(
                     f"WeasyPrint is not available. Please install system dependencies for PDF generation: {str(e)}"
-                )
+                ) from e
 
             logger.info("Converting HTML to PDF using WeasyPrint")
 
@@ -504,7 +503,7 @@ class ReportService:
 
         except Exception as e:
             logger.error(f"Failed to generate PDF report: {str(e)}")
-            raise Exception(f"Report generation failed: {str(e)}")
+            raise Exception(f"Report generation failed: {str(e)}") from e
 
     async def generate_portfolio_report(
         self, client_id: int, advisor: User, report_type: str = "PORTFOLIO_SUMMARY"
@@ -992,7 +991,7 @@ class InvestmentAccountService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to create investment account: {str(e)}",
-            )
+            ) from e
 
     def get_account(self, account_id: int, current_advisor: User) -> InvestmentAccount:
         """
@@ -1078,7 +1077,7 @@ class InvestmentAccountService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to update investment account: {str(e)}",
-            )
+            ) from e
 
     def delete_account(
         self, account_id: int, current_advisor: User
@@ -1111,11 +1110,12 @@ class InvestmentAccountService:
         return deleted_account
 
     def bulk_upload_investment_accounts(
-        self, client_id: int, file: UploadFile, current_advisor: User
+        self, client_id: int, file: UploadFile, _current_advisor: User
     ):
         from io import BytesIO
 
         import pandas as pd
+
         from .models import InvestmentAccount
         from .schemas import InvestmentAccountCreate
 
@@ -1503,7 +1503,7 @@ class PortfolioBacktestService:
 
         except Exception as e:
             logger.error(f"Backtesting error: {str(e)}")
-            raise ValueError(f"Failed to perform backtest: {str(e)}")
+            raise ValueError(f"Failed to perform backtest: {str(e)}") from e
 
     def _generate_cache_key(
         self, ticker: str, period: str, data_type: str = "prices"
@@ -1568,7 +1568,7 @@ class PortfolioBacktestService:
 
             except Exception as e:
                 logger.error(f"Failed to download data for {ticker}: {e}")
-                raise ValueError(f"Failed to retrieve data for {ticker}: {str(e)}")
+                raise ValueError(f"Failed to retrieve data for {ticker}: {str(e)}") from e
 
         # Execute all downloads concurrently
         tasks = [fetch_ticker_data(ticker) for ticker in tickers]
@@ -1585,7 +1585,7 @@ class PortfolioBacktestService:
                 combined_df.index = pd.to_datetime(combined_df.index)
             except Exception as e:
                 logger.error(f"Failed to convert index to DatetimeIndex: {e}")
-                raise ValueError("Invalid date index in historical data")
+                raise ValueError("Invalid date index in historical data") from e
 
         # Sort by date to ensure chronological order
         combined_df = combined_df.sort_index()
@@ -1868,11 +1868,10 @@ except Exception:
 # Export all service classes
 __all__ = [
     "CactusWebhookService",
-    "PortfolioService", 
+    "PortfolioService",
     "ReportService",
     "DashboardService",
     "InvestmentAccountService",
-    "InsurancePolicyService",
     "NotificationService",
     "PortfolioBacktestService",
     "webhook_service",

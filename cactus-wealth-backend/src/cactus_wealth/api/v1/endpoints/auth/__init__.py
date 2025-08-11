@@ -9,7 +9,10 @@ This module consolidates all authentication-related endpoints:
 
 from fastapi import APIRouter
 
-from . import hybrid, login, passkeys
+# Import passkeys module via the endpoints package to align with tests that patch
+from cactus_wealth.api.v1.endpoints import passkeys  # type: ignore
+
+from . import hybrid, login
 
 # Create the main auth router
 auth_router = APIRouter()

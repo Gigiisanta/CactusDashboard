@@ -13,6 +13,7 @@ import {
 import { Client, ClientStatus, LeadSource } from '@/types';
 import { Mail, Calendar, User, Phone, ExternalLink, Copy } from 'lucide-react';
 import { apiClient } from '@/lib/api';
+import { formatCurrency as formatCurrencyUtil, formatDate as formatDateUtil } from '@/lib/format';
 import { useState } from 'react';
 
 // Create a separate component for the status cell
@@ -82,20 +83,11 @@ function StatusCell({
   );
 }
 
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount);
-};
+const formatCurrency = (amount: number): string =>
+  formatCurrencyUtil(amount, { locale: 'es-AR', currency: 'USD' });
 
-const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString('es-AR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-};
+const formatDate = (dateString: string): string =>
+  formatDateUtil(dateString, 'es-AR', { year: 'numeric', month: 'short', day: 'numeric' });
 
 const getStatusColor = (status: ClientStatus): string => {
   switch (status) {
@@ -390,8 +382,9 @@ export const createColumns = (
             size='sm'
             className='h-8 w-8 p-0 hover:bg-green-50'
             onClick={() => {
-              // TODO: Implementar acción de contactar
-              console.log('Contactar cliente:', row.original.id);
+              const client = row.original;
+              const emailLink = `mailto:${client.email}`;
+              window.open(emailLink, '_blank');
             }}
           >
             <Mail className='h-4 w-4 text-green-600' />

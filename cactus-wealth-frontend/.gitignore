@@ -1,1 +1,11 @@
+node_modules/
+.next/
+.turbo/
+coverage/
+*.log
+.DS_Store
+.env*
+playwright-report/
+test-results/
+*.tsbuildinfo
 

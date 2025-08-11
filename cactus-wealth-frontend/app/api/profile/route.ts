@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendApiUrl } from '@/lib/backend';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export async function PUT(request: NextRequest) {
   try {
@@ -14,7 +14,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+    const url = getBackendApiUrl('users/me');
+    const response = await fetch(url, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

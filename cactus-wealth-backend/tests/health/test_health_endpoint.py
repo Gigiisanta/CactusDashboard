@@ -3,4 +3,4 @@
 
 def test_health_endpoint_error():
     # TODO: implementar test de error esperado
-    assert True 
+    assert True

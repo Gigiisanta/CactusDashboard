@@ -2,10 +2,7 @@
 Health check endpoint for monitoring system status.
 """
 
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-
-from cactus_wealth.database import get_db
+from fastapi import APIRouter
 
 router = APIRouter()
 
@@ -31,4 +28,4 @@ async def detailed_health_check():
             "api": "running"
         },
         "timestamp": datetime.utcnow().isoformat()
-    } 
+    }

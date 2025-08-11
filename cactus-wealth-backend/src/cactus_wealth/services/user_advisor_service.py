@@ -2,11 +2,10 @@
 User Advisor Service for managing Manager-Advisor hierarchy.
 """
 
-from typing import List
 
 from ..models import User, UserRole
-from ..repositories.user_repository import UserRepository
 from ..repositories.client_repository import ClientRepository
+from ..repositories.user_repository import UserRepository
 from ..schemas import UserWithStats
 
 
@@ -73,7 +72,7 @@ class UserAdvisorService:
 
         return self.user_repo.remove_advisor(manager_id, advisor_id)
 
-    def list_advisors_with_stats(self, manager_id: int) -> List[UserWithStats]:
+    def list_advisors_with_stats(self, manager_id: int) -> list[UserWithStats]:
         """
         Get all advisors under a manager with their statistics.
 
@@ -117,7 +116,7 @@ class UserAdvisorService:
 
         return advisors_with_stats
 
-    def get_unassigned_advisors(self) -> List[User]:
+    def get_unassigned_advisors(self) -> list[User]:
         """
         Get all advisors that are not assigned to any manager.
 

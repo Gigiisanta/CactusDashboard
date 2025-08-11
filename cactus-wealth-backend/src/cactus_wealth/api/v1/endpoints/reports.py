@@ -2,12 +2,10 @@
 Report management endpoints.
 """
 
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from cactus_wealth.database import get_db
-from cactus_wealth.models import Report
 from cactus_wealth.repositories import ReportRepository
 
 router = APIRouter()
@@ -21,7 +19,7 @@ async def get_reports(db: Session = Depends(get_db)):
         reports = report_repo.get_all()
         return {"reports": reports}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/reports/{report_id}")
@@ -36,7 +34,7 @@ async def get_report(report_id: int, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/reports/client/{client_id}")
@@ -47,7 +45,7 @@ async def get_client_reports(client_id: int, db: Session = Depends(get_db)):
         reports = report_repo.get_by_client_id(client_id)
         return {"reports": reports}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/reports")
@@ -58,7 +56,7 @@ async def create_report(report_data: dict, db: Session = Depends(get_db)):
         report = report_repo.create(report_data)
         return report
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/reports/{report_id}")
@@ -73,4 +71,4 @@ async def delete_report(report_id: int, db: Session = Depends(get_db)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e)) from e

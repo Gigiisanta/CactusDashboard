@@ -11,7 +11,7 @@ const nextConfig = {
   
   // Experimental features for faster development
   experimental: {
-    optimizeCss: true,
+    optimizeCss: process.env.ENABLE_CSS_OPTIMIZATION === 'true',
     optimizePackageImports: [
       'lucide-react',
       '@radix-ui/react-icons',
@@ -31,6 +31,13 @@ const nextConfig = {
       '@radix-ui/react-tabs',
       '@radix-ui/react-toast'
     ],
+  },
+
+  // Strip console.* in production client bundles
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn']
+    } : false,
   },
 
   // Development optimizations

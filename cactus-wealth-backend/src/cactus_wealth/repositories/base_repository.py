@@ -26,7 +26,21 @@ class BaseRepository(Generic[T]):
             model_class: SQLModel class for this repository
         """
         self.session = session
+        # Backwards-compat alias used by some repositories
+        self.db = session
         self.model_class = model_class
+
+    def get(self, entity_id: int) -> T | None:
+        """
+        Backwards-compatible alias for get_by_id used by some repositories.
+
+        Args:
+            entity_id: The ID of the entity to retrieve
+
+        Returns:
+            The entity if found, None otherwise
+        """
+        return self.get_by_id(entity_id)
 
     def get_by_id(self, entity_id: int) -> T | None:
         """

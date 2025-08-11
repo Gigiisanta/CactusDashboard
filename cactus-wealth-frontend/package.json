@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "clean": "rm -rf .next coverage node_modules/.cache",
     "cleanup": "echo 'Cleanup not needed in Docker'",
     "dev": "next dev -p 3000",
     "dev:clean": "npm run cleanup && next dev -p 3000",
@@ -25,9 +26,14 @@
     "e2e:debug": "playwright test --debug",
     "e2e:report": "playwright show-report",
     "type-check": "tsc --noEmit",
+    "typecheck": "npm run type-check",
     "quality": "npm run format && npm run lint:fix && npm run type-check",
     "lint-staged": "lint-staged",
     "analyze:dead-code": "ts-prune"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",

@@ -177,11 +177,16 @@ const originalConsoleError = console.error
 const originalConsoleWarn = console.warn
 
 const silencedSubstrings = [
-  // React act warnings during hook state updates in tests
-  'Warning: An update to TestComponent inside a test was not wrapped in act',
+  // React act warnings during hook state updates in tests (broad pattern)
+  'Warning: An update to',
+  'wrapped in act',
   // Radix Dialog accessibility guidance shown in isolated unit tests
   '`DialogContent` requires a `DialogTitle`',
   'Missing `Description` or `aria-describedby',
+  // Known error logs intentionally produced in negative-path tests
+  'Error fetching client:',
+  'Hook: Error conectando:',
+  'Failed to disconnect WebSocket:',
 ]
 
 function shouldSilenceConsole(args: unknown[]): boolean {

@@ -3,13 +3,19 @@ Main FastAPI application entry point.
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from cactus_wealth.api.v1.api import api_router
 from cactus_wealth.core.config import settings
+from cactus_wealth.core.logging_config import configure_structured_logging
+
 # from cactus_wealth.core.middleware import (
 #     LoggingMiddleware,
 #     SecurityHeadersMiddleware,
 #     PerformanceMiddleware,
 # )
+
+# Configure structured logging before app creation
+configure_structured_logging(settings.LOG_LEVEL)
 
 # Create FastAPI application
 app = FastAPI(

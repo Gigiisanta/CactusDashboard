@@ -3,9 +3,9 @@ Client repository for client-related database operations.
 """
 
 from sqlalchemy.orm import selectinload
-from sqlmodel import Session, select, func
+from sqlmodel import Session, func, select
 
-from ..models import Client, InsurancePolicy, InvestmentAccount, ClientStatus
+from ..models import Client, ClientStatus, InsurancePolicy, InvestmentAccount
 from .base_repository import BaseRepository
 
 
@@ -14,6 +14,10 @@ class ClientRepository(BaseRepository[Client]):
 
     def __init__(self, session: Session):
         super().__init__(session, Client)
+
+    def get_client(self, client_id: int) -> Client | None:
+        """Compatibility helper to fetch a client by ID."""
+        return self.get_by_id(client_id)
 
     def get_by_email(self, email: str) -> Client | None:
         """

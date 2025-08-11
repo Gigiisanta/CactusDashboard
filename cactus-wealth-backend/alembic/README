@@ -1,1 +1,18 @@
-Generic single-database configuration.
+Alembic usage and safe DB alignment
+
+Never drop production data from migrations. To normalize state safely:
+
+1) Inspect heads and history
+   - alembic heads
+   - alembic history | tail -n 50
+
+2) If multiple heads are reported, create a merge revision:
+   - alembic merge -m "merge heads" <head1> <head2>
+   Then set the merge script's upgrade/downgrade to no-op if schema is already aligned.
+
+3) Apply migrations idempotently:
+   - alembic upgrade head
+
+4) If you see duplicate object errors (e.g., users table exists), ensure earlier revisions only ALTER/INDEX existing tables and do not recreate them. Prefer conditional DDL guarded by dialect checks where needed.
+
+Dev only reset (destructive): set RESET_DB=1 and run scripts/reset_database.py. This must never be used in production.

@@ -6,11 +6,11 @@ import pytest
 from sqlmodel import Session, create_engine
 from sqlmodel.pool import StaticPool
 
-from cactus_wealth.models import User, UserRole, Client, ClientStatus
-from cactus_wealth.repositories.user_repository import UserRepository
+from cactus_wealth.models import Client, ClientStatus, User, UserRole
 from cactus_wealth.repositories.client_repository import ClientRepository
-from cactus_wealth.services.user_advisor_service import UserAdvisorService
+from cactus_wealth.repositories.user_repository import UserRepository
 from cactus_wealth.services.dashboard_service import DashboardService
+from cactus_wealth.services.user_advisor_service import UserAdvisorService
 
 
 @pytest.fixture
@@ -21,11 +21,11 @@ def session():
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    
+
     # Create tables
     from cactus_wealth.models import SQLModel
     SQLModel.metadata.create_all(engine)
-    
+
     with Session(engine) as session:
         yield session
 
@@ -124,7 +124,7 @@ class TestUserAdvisorService:
         """Test linking advisor that is already assigned."""
         # First assignment
         user_advisor_service.link_advisor(manager_user.id, advisor_user.id)
-        
+
         # Create another manager
         another_manager = User(
             email="manager2@test.com",
@@ -136,7 +136,7 @@ class TestUserAdvisorService:
         session.add(another_manager)
         session.commit()
         session.refresh(another_manager)
-        
+
         # Try to assign the same advisor to another manager
         with pytest.raises(ValueError, match="Advisor is already assigned to a manager"):
             user_advisor_service.link_advisor(another_manager.id, advisor_user.id)
@@ -145,7 +145,7 @@ class TestUserAdvisorService:
         """Test successful advisor unlinking."""
         # First link the advisor
         user_advisor_service.link_advisor(manager_user.id, advisor_user.id)
-        
+
         # Then unlink
         result = user_advisor_service.unlink_advisor(manager_user.id, advisor_user.id)
         assert result is True
@@ -159,7 +159,7 @@ class TestUserAdvisorService:
         """Test listing advisors with statistics."""
         # Link advisor to manager
         user_advisor_service.link_advisor(manager_user.id, advisor_user.id)
-        
+
         # Create some clients for the advisor
         client1 = Client(
             first_name="John",
@@ -177,10 +177,10 @@ class TestUserAdvisorService:
         )
         session.add_all([client1, client2])
         session.commit()
-        
+
         # Get advisors with stats
         advisors = user_advisor_service.list_advisors_with_stats(manager_user.id)
-        
+
         assert len(advisors) == 1
         advisor_stats = advisors[0]
         assert advisor_stats.id == advisor_user.id
@@ -193,10 +193,10 @@ class TestUserAdvisorService:
         # Initially both advisors are unassigned
         unassigned = user_advisor_service.get_unassigned_advisors()
         assert len(unassigned) == 2
-        
+
         # Assign one advisor
         user_advisor_service.link_advisor(manager_user.id, advisor_user.id)
-        
+
         # Now only one should be unassigned
         unassigned = user_advisor_service.get_unassigned_advisors()
         assert len(unassigned) == 1
@@ -225,10 +225,10 @@ class TestDashboardService:
         )
         session.add_all([client1, client2])
         session.commit()
-        
+
         # Get metrics
         metrics = dashboard_service.get_dashboard_metrics(advisor_user.id, UserRole.ADVISOR)
-        
+
         assert metrics.n_clients == 1
         assert metrics.n_prospects == 1
         assert metrics.aum_total == 0.0
@@ -238,7 +238,7 @@ class TestDashboardService:
         """Test getting dashboard metrics for a manager."""
         # Link advisor to manager
         user_advisor_service.link_advisor(manager_user.id, advisor_user.id)
-        
+
         # Create clients for both manager and advisor
         manager_client = Client(
             first_name="Manager",
@@ -256,15 +256,15 @@ class TestDashboardService:
         )
         session.add_all([manager_client, advisor_client])
         session.commit()
-        
+
         # Get metrics
         metrics = dashboard_service.get_dashboard_metrics(manager_user.id, UserRole.MANAGER)
-        
+
         assert metrics.n_clients == 2  # Manager's + advisor's clients
         assert metrics.n_prospects == 0
         assert metrics.aum_total == 0.0
         assert len(metrics.advisors) == 1  # Manager sees their advisors
-        
+
         advisor_stats = metrics.advisors[0]
         assert advisor_stats.id == advisor_user.id
         assert advisor_stats.n_clients == 1
@@ -283,7 +283,7 @@ class TestDashboardService:
         session.add(god_user)
         session.commit()
         session.refresh(god_user)
-        
+
         with pytest.raises(ValueError, match="Unsupported role for dashboard metrics"):
             dashboard_service.get_dashboard_metrics(god_user.id, UserRole.GOD)
 
@@ -310,10 +310,10 @@ class TestManagerAdvisorSecurity:
         )
         session.add_all([client1, client2])
         session.commit()
-        
+
         # Get metrics for first advisor
         metrics = dashboard_service.get_dashboard_metrics(advisor_user.id, UserRole.ADVISOR)
-        
+
         # Should only see their own data
         assert metrics.n_clients == 1
         assert len(metrics.advisors) == 0
@@ -331,14 +331,14 @@ class TestManagerAdvisorSecurity:
         session.add(another_manager)
         session.commit()
         session.refresh(another_manager)
-        
+
         # Assign advisors to different managers
         user_advisor_service.link_advisor(manager_user.id, advisor_user.id)
         user_advisor_service.link_advisor(another_manager.id, another_advisor_user.id)
-        
+
         # Get metrics for first manager
         metrics = dashboard_service.get_dashboard_metrics(manager_user.id, UserRole.MANAGER)
-        
+
         # Should only see their own advisor
         assert len(metrics.advisors) == 1
         assert metrics.advisors[0].id == advisor_user.id

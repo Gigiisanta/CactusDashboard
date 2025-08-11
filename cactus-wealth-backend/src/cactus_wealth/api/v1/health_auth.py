@@ -2,13 +2,13 @@
 Endpoint de health check para el sistema de autenticación.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select, text
-from typing import Dict, Any
 import os
 import smtplib
-from email.mime.text import MIMEText
 from datetime import datetime
+from typing import Any
+
+from fastapi import APIRouter, Depends
+from sqlmodel import Session, select, text
 
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User
@@ -16,7 +16,7 @@ from cactus_wealth.models import User
 router = APIRouter()
 
 @router.get("/health/auth")
-async def health_auth(db: Session = Depends(get_session)) -> Dict[str, Any]:
+async def health_auth(db: Session = Depends(get_session)) -> dict[str, Any]:
     """
     Endpoint de health check para el sistema de autenticación.
     Verifica:
@@ -30,7 +30,7 @@ async def health_auth(db: Session = Depends(get_session)) -> Dict[str, Any]:
         "timestamp": datetime.utcnow().isoformat(),
         "checks": {}
     }
-    
+
     try:
         # 1. Verificar conexión a la base de datos
         try:
@@ -45,7 +45,7 @@ async def health_auth(db: Session = Depends(get_session)) -> Dict[str, Any]:
                 "message": f"Error de conexión a la base de datos: {str(e)}"
             }
             health_status["status"] = "unhealthy"
-        
+
         # 2. Verificar tabla de usuarios
         try:
             user_count = db.exec(text("SELECT COUNT(*) FROM users")).first()
@@ -59,13 +59,13 @@ async def health_auth(db: Session = Depends(get_session)) -> Dict[str, Any]:
                 "message": f"Error accediendo tabla users: {str(e)}"
             }
             health_status["status"] = "unhealthy"
-        
+
         # 3. Verificar usuario super-admin
         try:
             super_admin = db.exec(
                 select(User).where(User.email == "gsantarelli@grupoabax.com")
             ).first()
-            
+
             if super_admin:
                 health_status["checks"]["super_admin"] = {
                     "status": "healthy",
@@ -81,7 +81,7 @@ async def health_auth(db: Session = Depends(get_session)) -> Dict[str, Any]:
                 "status": "unhealthy",
                 "message": f"Error verificando super-admin: {str(e)}"
             }
-        
+
         # 4. Verificar configuración SMTP
         smtp_config = {
             "host": os.getenv("EMAIL_SERVER_HOST"),
@@ -90,9 +90,9 @@ async def health_auth(db: Session = Depends(get_session)) -> Dict[str, Any]:
             "password": os.getenv("EMAIL_SERVER_PASS"),
             "from": os.getenv("EMAIL_FROM")
         }
-        
+
         missing_smtp = [key for key, value in smtp_config.items() if not value]
-        
+
         if missing_smtp:
             health_status["checks"]["smtp_config"] = {
                 "status": "warning",
@@ -103,11 +103,11 @@ async def health_auth(db: Session = Depends(get_session)) -> Dict[str, Any]:
             try:
                 smtp_host = smtp_config["host"]
                 smtp_port = int(smtp_config["port"])
-                
+
                 with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
                     server.starttls()
                     server.login(smtp_config["user"], smtp_config["password"])
-                
+
                 health_status["checks"]["smtp_config"] = {
                     "status": "healthy",
                     "message": f"Conexión SMTP exitosa a {smtp_host}:{smtp_port}"
@@ -118,7 +118,7 @@ async def health_auth(db: Session = Depends(get_session)) -> Dict[str, Any]:
                     "message": f"Error de conexión SMTP: {str(e)}"
                 }
                 health_status["status"] = "unhealthy"
-        
+
         # 5. Verificar variables de NextAuth
         nextauth_vars = {
             "NEXTAUTH_SECRET": os.getenv("NEXTAUTH_SECRET"),
@@ -126,9 +126,9 @@ async def health_auth(db: Session = Depends(get_session)) -> Dict[str, Any]:
             "GOOGLE_CLIENT_ID": os.getenv("GOOGLE_CLIENT_ID"),
             "GOOGLE_CLIENT_SECRET": os.getenv("GOOGLE_CLIENT_SECRET")
         }
-        
+
         missing_nextauth = [key for key, value in nextauth_vars.items() if not value]
-        
+
         if missing_nextauth:
             health_status["checks"]["nextauth_config"] = {
                 "status": "warning",
@@ -139,9 +139,9 @@ async def health_auth(db: Session = Depends(get_session)) -> Dict[str, Any]:
                 "status": "healthy",
                 "message": "Variables NextAuth configuradas correctamente"
             }
-        
+
         return health_status
-        
+
     except Exception as e:
         return {
             "status": "unhealthy",

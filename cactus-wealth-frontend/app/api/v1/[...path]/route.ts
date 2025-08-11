@@ -6,6 +6,30 @@ const DEFAULT_BASE_URL = 'http://localhost:8000';
 const BACKEND_BASE_URL = ENV_BASE_URL || DEFAULT_BASE_URL;
 // Ensure we don't duplicate /api/v1 in the URL
 const BACKEND_URL = BACKEND_BASE_URL.endsWith('/api/v1') ? BACKEND_BASE_URL.replace('/api/v1', '') : BACKEND_BASE_URL;
+// Reduce noisy logging in production; enable with DEBUG_PROXY=true or in development
+const DEBUG_PROXY = process.env.NODE_ENV !== 'production' && (process.env.DEBUG_PROXY === 'true' || process.env.NODE_ENV === 'development');
+const PROXY_TIMEOUT_MS = Number(process.env.PROXY_TIMEOUT_MS || 12000);
+const PROXY_MAX_RETRIES = Number(process.env.PROXY_MAX_RETRIES || 1);
+const PROXY_RETRY_BASE_DELAY_MS = Number(process.env.PROXY_RETRY_BASE_DELAY_MS || 250);
+
+function withTimeout(signal?: AbortSignal): { signal: AbortSignal; timeoutId: NodeJS.Timeout } {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(new Error(`Proxy request timed out after ${PROXY_TIMEOUT_MS}ms`)), PROXY_TIMEOUT_MS);
+  if (signal) {
+    signal.addEventListener('abort', () => controller.abort());
+  }
+  return { signal: controller.signal, timeoutId };
+}
+
+function shouldRetry(status: number): boolean {
+  // Retry on network errors is handled by catch; here we retry on 502/503/504
+  return status === 502 || status === 503 || status === 504;
+}
+
+async function backoff(attempt: number): Promise<void> {
+  const delay = PROXY_RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+  await new Promise((r) => setTimeout(r, delay));
+}
 
 export async function GET(
   request: NextRequest,
@@ -16,7 +40,7 @@ export async function GET(
   const url = `${BACKEND_URL}/api/v1/${path}`;
   
   try {
-    console.log(`[PROXY] GET ${url}`);
+    if (DEBUG_PROXY) console.warn(`[PROXY] GET ${url}`);
     // Attach Authorization from cookie if not explicitly provided
     const authorization = request.headers.get('authorization') ||
       (request.cookies.get('access_token')?.value ? `Bearer ${request.cookies.get('access_token')!.value}` : undefined);
@@ -26,7 +50,21 @@ export async function GET(
     if (authorization) (proxyHeaders as Record<string, string>)['Authorization'] = authorization;
     if (cookie) (proxyHeaders as Record<string, string>)['Cookie'] = cookie;
 
-    const response = await fetch(url, { method: 'GET', headers: proxyHeaders });
+    let attempt = 0;
+    let response: Response | null = null;
+    while (attempt <= PROXY_MAX_RETRIES) {
+      const { signal, timeoutId } = withTimeout(request.signal);
+      try {
+        response = await fetch(url, { method: 'GET', headers: proxyHeaders, signal, cache: 'no-store' });
+        clearTimeout(timeoutId);
+        if (!shouldRetry(response.status)) break;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (attempt >= PROXY_MAX_RETRIES) throw err;
+      }
+      await backoff(attempt++);
+    }
+    if (!response) throw new Error('No response from backend');
     const resHeaders = new Headers(response.headers);
     return new NextResponse(response.body, { status: response.status, headers: resHeaders });
   } catch (error) {
@@ -52,7 +90,7 @@ export async function POST(
   const url = `${BACKEND_URL}/api/v1/${path}`;
   
   try {
-    console.log(`[PROXY] POST ${url}`);
+    if (DEBUG_PROXY) console.warn(`[PROXY] POST ${url}`);
     // Preserve original content-type and stream body as-is (supports JSON, urlencoded, multipart)
     const contentType = request.headers.get('content-type') || undefined;
     const authorization = request.headers.get('authorization') ||
@@ -65,15 +103,16 @@ export async function POST(
     if (cookie) (proxyHeaders as Record<string, string>)['Cookie'] = cookie;
 
     let response: Response;
+    const { signal, timeoutId } = withTimeout(request.signal);
     // Optimize for common types to avoid streaming issues
     if (contentType && contentType.includes('application/x-www-form-urlencoded')) {
       const textBody = await request.text();
       const contentLength = new TextEncoder().encode(textBody).length.toString();
       (proxyHeaders as Record<string, string>)['Content-Length'] = contentLength;
-      response = await fetch(url, { method: 'POST', headers: proxyHeaders, body: textBody });
+      response = await fetch(url, { method: 'POST', headers: proxyHeaders, body: textBody, signal, cache: 'no-store' });
     } else if (contentType && contentType.includes('application/json')) {
       const jsonText = await request.text();
-      response = await fetch(url, { method: 'POST', headers: proxyHeaders, body: jsonText });
+      response = await fetch(url, { method: 'POST', headers: proxyHeaders, body: jsonText, signal, cache: 'no-store' });
     } else {
       response = await fetch(url, {
         method: 'POST',
@@ -82,8 +121,11 @@ export async function POST(
         // @ts-expect-error Node/Undici requires duplex when streaming body in edge runtimes
         duplex: 'half',
         body: request.body,
+        signal,
+        cache: 'no-store',
       });
     }
+    clearTimeout(timeoutId);
     
     // Pass-through response (including JSON bodies)
     const resHeaders = new Headers(response.headers);
@@ -111,7 +153,7 @@ export async function PUT(
   const url = `${BACKEND_URL}/api/v1/${path}`;
   
   try {
-    console.log(`[PROXY] PUT ${url}`);
+    if (DEBUG_PROXY) console.warn(`[PROXY] PUT ${url}`);
     // Preserve content type and stream raw body
     const contentType = request.headers.get('content-type') || undefined;
     const authorization = request.headers.get('authorization') ||
@@ -124,14 +166,15 @@ export async function PUT(
     if (cookie) (proxyHeaders as Record<string, string>)['Cookie'] = cookie;
 
     let response: Response;
+    const { signal, timeoutId } = withTimeout(request.signal);
     if (contentType && contentType.includes('application/x-www-form-urlencoded')) {
       const textBody = await request.text();
       const contentLength = new TextEncoder().encode(textBody).length.toString();
       (proxyHeaders as Record<string, string>)['Content-Length'] = contentLength;
-      response = await fetch(url, { method: 'PUT', headers: proxyHeaders, body: textBody });
+      response = await fetch(url, { method: 'PUT', headers: proxyHeaders, body: textBody, signal, cache: 'no-store' });
     } else if (contentType && contentType.includes('application/json')) {
       const jsonText = await request.text();
-      response = await fetch(url, { method: 'PUT', headers: proxyHeaders, body: jsonText });
+      response = await fetch(url, { method: 'PUT', headers: proxyHeaders, body: jsonText, signal, cache: 'no-store' });
     } else {
       response = await fetch(url, {
         method: 'PUT',
@@ -139,8 +182,11 @@ export async function PUT(
         // @ts-expect-error Node/Undici requires duplex when streaming body in edge runtimes
         duplex: 'half',
         body: request.body,
+        signal,
+        cache: 'no-store',
       });
     }
+    clearTimeout(timeoutId);
     
     const resHeaders = new Headers(response.headers);
     return new NextResponse(response.body, { status: response.status, headers: resHeaders });
@@ -167,7 +213,7 @@ export async function DELETE(
   const url = `${BACKEND_URL}/api/v1/${path}`;
   
   try {
-    console.log(`[PROXY] DELETE ${url}`);
+    if (DEBUG_PROXY) console.warn(`[PROXY] DELETE ${url}`);
     const authorization = request.headers.get('authorization') || undefined;
     const cookie = request.headers.get('cookie') || undefined;
 
@@ -175,7 +221,9 @@ export async function DELETE(
     if (authorization) (proxyHeaders as Record<string, string>)['Authorization'] = authorization;
     if (cookie) (proxyHeaders as Record<string, string>)['Cookie'] = cookie;
 
-    const response = await fetch(url, { method: 'DELETE', headers: proxyHeaders });
+    const { signal, timeoutId } = withTimeout(request.signal);
+    const response = await fetch(url, { method: 'DELETE', headers: proxyHeaders, signal, cache: 'no-store' });
+    clearTimeout(timeoutId);
     const resHeaders = new Headers(response.headers);
     return new NextResponse(response.body, { status: response.status, headers: resHeaders });
   } catch (error) {

@@ -44,7 +44,7 @@ def configure_structured_logging(log_level: str = "INFO") -> None:
 
 
 def add_service_info(
-    logger: Any, method_name: str, event_dict: dict[str, Any]
+    _logger: Any, _method_name: str, event_dict: dict[str, Any]
 ) -> dict[str, Any]:
     """
     Añade información del servicio a cada log entry.
@@ -64,7 +64,7 @@ def add_service_info(
 
 
 def add_timestamp(
-    logger: Any, method_name: str, event_dict: dict[str, Any]
+    _logger: Any, _method_name: str, event_dict: dict[str, Any]
 ) -> dict[str, Any]:
     """
     Añade timestamp ISO 8601 a cada log entry.

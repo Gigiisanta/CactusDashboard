@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 import { useSession, signIn } from 'next-auth/react';
 
 interface TestResult {
@@ -17,13 +18,18 @@ export default function DebugPage() {
 
   const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
   const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
+  const DEBUG_PAGE = process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_DEBUG_PAGE === 'true';
 
   const log = useCallback((message: string, type: 'info' | 'error' | 'warning' = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
     const logMessage = `[${timestamp}] ${message}`;
     setLogs(prev => [...prev, logMessage]);
-    console.log(logMessage);
-  }, []);
+    if (DEBUG_PAGE) {
+      if (type === 'error') logger.error(logMessage);
+      else if (type === 'warning') logger.warn(logMessage);
+      else logger.info(logMessage);
+    }
+  }, [DEBUG_PAGE]);
 
   const addTestResult = useCallback((name: string, success: boolean, message: string, data?: any) => {
     setTestResults(prev => [...prev, { name, success, message, data }]);

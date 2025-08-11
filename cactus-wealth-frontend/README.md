@@ -192,6 +192,16 @@ Promise rejections:
 ### Environment Variables
 
 - `NEXT_PUBLIC_API_BASE_URL`: Backend API base URL
+- `NEXT_PUBLIC_API_URL`: Alternative backend base (used by WebSocket service to build ws URL)
+- `NEXT_PUBLIC_FRONTEND_URL`: Public frontend origin (used in debug page)
+- `DEBUG_PROXY`: Enable verbose proxy logs on server (default: off in production)
+- `NEXT_PUBLIC_DEBUG_WS`: Enable verbose WebSocket logs in browser (default: off in production)
+- `NEXT_PUBLIC_DEBUG_PAGE`: Enable console logs in debug page even outside dev (default: off)
+- `PROXY_TIMEOUT_MS`: Timeout in milliseconds for proxy requests (default: 12000)
+- `PROXY_MAX_RETRIES`: Max retry attempts for proxy requests on 502/503/504 (default: 1)
+- `PROXY_RETRY_BASE_DELAY_MS`: Base backoff delay for retries (default: 250)
+- `NEXT_PUBLIC_LOCALE`: UI locale default for formatting (default: es-ES)
+- `NEXT_PUBLIC_CURRENCY`: Default currency for formatting (default: EUR)
 
 ### Tailwind Configuration
 

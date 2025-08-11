@@ -38,6 +38,7 @@ import {
   Sprout,
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { AddInvestmentAccountDialog } from './AddInvestmentAccountDialog';
 import { AddInsurancePolicyDialog } from './AddInsurancePolicyDialog';
 import { EditSavingsCapacityDialog } from './EditSavingsCapacityDialog';
@@ -45,6 +46,7 @@ import { ClientService } from '@/services/client.service';
 import { PortfolioService } from '@/services/portfolio.service';
 import { toast } from 'sonner';
 import { copyToClipboard } from '@/lib/clipboard';
+import { formatCurrency as formatCurrencyUtil, formatDate as formatDateUtil } from '@/lib/format';
 
 interface ClientDetailsCardProps {
   client: Client;
@@ -136,30 +138,14 @@ const getLeadSourceLabel = (source?: LeadSource): string => {
   }
 };
 
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('es-ES', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
-};
+const formatCurrency = (amount: number): string =>
+  formatCurrencyUtil(amount, { locale: 'es-ES', currency: 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-};
+const formatDate = (dateString: string): string =>
+  formatDateUtil(dateString, 'es-ES', { year: 'numeric', month: 'long', day: 'numeric' });
 
-const formatDateShort = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString('es-ES', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-};
+const formatDateShort = (dateString: string): string =>
+  formatDateUtil(dateString, 'es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
 
 export function ClientDetailsCard({
   client,
@@ -169,6 +155,7 @@ export function ClientDetailsCard({
   onEditingChange,
   clientService = ClientService,
 }: ClientDetailsCardProps & { clientService?: typeof ClientService }) {
+  const router = useRouter();
   const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
   const [isAddPolicyModalOpen, setIsAddPolicyModalOpen] = useState(false);
   const [isEditSavingsModalOpen, setIsEditSavingsModalOpen] = useState(false);
@@ -875,13 +862,12 @@ export function ClientDetailsCard({
                       </Button>
                     )}
 
-                    <Button
+                      <Button
                       variant='outline'
                       size='sm'
                       className='h-10 border-blue-200 text-blue-700 hover:bg-blue-50'
                       onClick={() => {
-                        // Aquí se podría abrir un modal con información detallada del cliente
-                        console.log('Abrir información del cliente');
+                          router.push(`/clients/${client.id}`);
                       }}
                     >
                       <ExternalLink className='mr-2 h-4 w-4 flex-shrink-0' />

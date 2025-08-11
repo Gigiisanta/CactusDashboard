@@ -1,23 +1,24 @@
-from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlmodel import Session
 
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User, UserRole
-from cactus_wealth.repositories import UserRepository, ClientRepository
+from cactus_wealth.repositories import ClientRepository, UserRepository
 from cactus_wealth.schemas import (
-    UserCreate,
-    UserRead,
-    UserWithStats,
     LinkAdvisorRequest,
-    UnlinkAdvisorRequest,
-    UserUpdate,
-    PasswordChangeRequest,
     ManagerChangeRequest,
     ManagerChangeRequestRead,
+    PasswordChangeRequest,
+    UnlinkAdvisorRequest,
+    UserCreate,
+    UserRead,
+    UserUpdate,
+    UserWithStats,
 )
 from cactus_wealth.security import get_current_user
 from cactus_wealth.services.user_advisor_service import UserAdvisorService
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session
 
 router = APIRouter()
 
@@ -43,7 +44,7 @@ def create_user(
         user = user_repo.create_user(user_create=user_create)
         return UserRead.model_validate(user)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.post("/change-password", status_code=status.HTTP_200_OK)
@@ -150,23 +151,23 @@ def update_users_me(
             user_id=current_user.id,
             username=user_update.username
         )
-        
+
         if not updated_user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
-        
+
         return UserRead.model_validate(updated_user)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
-@router.get("/advisors", response_model=List[UserWithStats])
+@router.get("/advisors", response_model=list[UserWithStats])
 def get_advisors_with_stats(
     current_user: User = Depends(get_current_user),
     user_advisor_service: UserAdvisorService = Depends(get_user_advisor_service),
-) -> List[UserWithStats]:
+) -> list[UserWithStats]:
     """
     Get advisors with their statistics.
     Only accessible by managers.
@@ -176,16 +177,16 @@ def get_advisors_with_stats(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only managers can access advisor statistics"
         )
-    
+
     try:
         return user_advisor_service.list_advisors_with_stats(current_user.id)
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get advisors: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/advisors/link", status_code=status.HTTP_200_OK)
@@ -203,7 +204,7 @@ def link_advisor(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only managers can link advisors"
         )
-    
+
     try:
         success = user_advisor_service.link_advisor(current_user.id, request.advisor_id)
         if not success:
@@ -213,12 +214,12 @@ def link_advisor(
             )
         return {"message": "Advisor linked successfully"}
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to link advisor: {str(e)}"
-        )
+        ) from e
 
 
 @router.post("/advisors/unlink", status_code=status.HTTP_200_OK)
@@ -236,7 +237,7 @@ def unlink_advisor(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only managers can unlink advisors"
         )
-    
+
     try:
         success = user_advisor_service.unlink_advisor(current_user.id, request.advisor_id)
         if not success:
@@ -246,19 +247,19 @@ def unlink_advisor(
             )
         return {"message": "Advisor unlinked successfully"}
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to unlink advisor: {str(e)}"
-        )
+        ) from e
 
 
-@router.get("/advisors/unassigned", response_model=List[UserRead])
+@router.get("/advisors/unassigned", response_model=list[UserRead])
 def get_unassigned_advisors(
     current_user: User = Depends(get_current_user),
     user_advisor_service: UserAdvisorService = Depends(get_user_advisor_service),
-) -> List[UserRead]:
+) -> list[UserRead]:
     """
     Get all unassigned advisors.
     Only accessible by managers.
@@ -268,7 +269,7 @@ def get_unassigned_advisors(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only managers can view unassigned advisors"
         )
-    
+
     try:
         advisors = user_advisor_service.get_unassigned_advisors()
         return [UserRead.model_validate(advisor) for advisor in advisors]
@@ -276,4 +277,4 @@ def get_unassigned_advisors(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get unassigned advisors: {str(e)}"
-        )
+        ) from e

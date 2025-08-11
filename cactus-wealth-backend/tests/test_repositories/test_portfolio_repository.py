@@ -111,7 +111,7 @@ class TestPortfolioRepository:
             mock_datetime.utcnow.return_value = mock_now
 
             # Act
-            result = portfolio_repository.create_snapshot(portfolio_id, value)
+            portfolio_repository.create_snapshot(portfolio_id, value)
 
             # Assert
             mock_session.add.assert_called_once()

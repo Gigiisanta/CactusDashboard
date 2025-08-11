@@ -7,17 +7,17 @@ el comportamiento end-to-end de los endpoints principales.
 from unittest.mock import Mock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 import sqlalchemy
+from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 
 @pytest.fixture
 def client_and_token(session, test_client):
-    from cactus_wealth.test_utils import create_user, create_client
-    from cactus_wealth.models import UserRole, RiskProfile
-    from cactus_wealth.schemas import UserCreate, ClientCreate
+    from cactus_wealth.models import RiskProfile, UserRole
+    from cactus_wealth.schemas import ClientCreate, UserCreate
     from cactus_wealth.security import create_access_token
+    from cactus_wealth.test_utils import create_client, create_user
 
     # Crear usuario real
     user_data = UserCreate(
@@ -250,8 +250,9 @@ class TestBulkUploadInvestmentAccounts:
         import io
 
         import pandas as pd
-        from cactus_wealth.security import create_access_token
+
         from cactus_wealth.models import Client
+        from cactus_wealth.security import create_access_token
 
         # Crear archivo CSV en memoria
         df = pd.DataFrame(
@@ -275,7 +276,6 @@ class TestBulkUploadInvestmentAccounts:
         )
         # Persistir el cliente en la base de datos
         from cactus_wealth.database import get_engine
-        from sqlmodel import Session
         with Session(get_engine()) as session:
             session.add(c)
             session.commit()
