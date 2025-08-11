@@ -44,6 +44,7 @@ import { EditSavingsCapacityDialog } from './EditSavingsCapacityDialog';
 import { ClientService } from '@/services/client.service';
 import { PortfolioService } from '@/services/portfolio.service';
 import { toast } from 'sonner';
+import { copyToClipboard } from '@/lib/clipboard';
 
 interface ClientDetailsCardProps {
   client: Client;
@@ -471,9 +472,7 @@ export function ClientDetailsCard({
                     <Button
                       variant='ghost'
                       size='sm'
-                      onClick={() =>
-                        navigator.clipboard.writeText(client.email)
-                      }
+                      onClick={() => copyToClipboard(client.email)}
                       className='h-8 w-8 p-0 hover:bg-slate-200'
                     >
                       <Copy className='h-4 w-4' />
@@ -523,9 +522,7 @@ export function ClientDetailsCard({
                     <Button
                       variant='ghost'
                       size='sm'
-                      onClick={() =>
-                        navigator.clipboard.writeText(client.phone || '')
-                      }
+                      onClick={() => copyToClipboard(client.phone || '')}
                       className='h-8 w-8 p-0 hover:bg-slate-200'
                     >
                       <Copy className='h-4 w-4' />

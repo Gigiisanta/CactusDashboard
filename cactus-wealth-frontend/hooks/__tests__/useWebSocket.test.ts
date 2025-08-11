@@ -312,18 +312,18 @@ describe('useWebSocket', () => {
       const { result } = renderHook(() => useWebSocket());
 
       // Add 60 notifications one by one to respect debouncing
-      act(() => {
-        for (let i = 1; i <= 60; i++) {
+      // Feed notifications sequentially respecting debounce window
+      for (let i = 1; i <= 60; i++) {
+        act(() => {
           notificationHandler!({
             id: i,
             message: `Notification ${i}`,
             is_read: false,
             created_at: '2024-01-01T00:00:00Z',
           });
-        }
-        // Advance timers to trigger debounced updates
-        jest.advanceTimersByTime(150);
-      });
+          jest.advanceTimersByTime(120);
+        });
+      }
 
       expect(result.current.notifications).toHaveLength(50);
       expect(result.current.notifications[0].id).toBe(60); // Most recent first

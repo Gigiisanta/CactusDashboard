@@ -24,6 +24,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface SecureCredential {
   id: number;
@@ -307,12 +308,20 @@ export default function CredencialesSeguras() {
     });
   };
 
-  const handleCopyToClipboard = (text: string, type: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Copiado",
-      description: `${type} copiado al portapapeles`,
-    });
+  const handleCopyToClipboard = async (text: string, type: string) => {
+    const success = await copyToClipboard(text);
+    if (success) {
+      toast({
+        title: "Copiado",
+        description: `${type} copiado al portapapeles`,
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "No se pudo copiar al portapapeles",
+        variant: "destructive"
+      });
+    }
   };
 
   const toggleActive = (id: number) => {

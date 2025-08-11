@@ -1,17 +1,18 @@
+import { vi } from 'vitest';
 import { NotificationService } from '@/services/notification.service';
 
 // Mock the API client
-jest.mock('@/lib/api', () => ({
+vi.mock('@/lib/api', () => ({
   apiClient: {
-    getNotifications: jest.fn(),
+    getNotifications: vi.fn(),
   },
 }));
 
-describe('NotificationService', () => {
-  const { apiClient } = require('@/lib/api');
+import { apiClient } from '@/lib/api';
 
+describe('NotificationService', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('getNotifications', () => {

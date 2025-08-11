@@ -16,12 +16,13 @@ import {
   TrendingUp,
   PieChart,
   Loader2,
-  Settings,
   UserCog,
 } from 'lucide-react';
 import DashboardRecentActivity from '@/app/dashboard/components/DashboardRecentActivity';
 import { useClient } from '@/context/ClientContext';
 import { apiClient } from '@/lib/api';
+import { useSession } from 'next-auth/react';
+import { useBackendUser } from '@/hooks/useBackendUser';
 
 interface SidebarProps {
   className?: string;
@@ -49,9 +50,9 @@ const navigationItems = [
     icon: BarChart3,
   },
   {
-    href: '/settings',
-    label: 'Configuración',
-    icon: Settings,
+    href: '/profile',
+    label: 'Perfil',
+    icon: UserCog,
   },
 ];
 
@@ -60,6 +61,8 @@ export function Sidebar({ className }: SidebarProps) {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const pathname = usePathname();
   const { activeClient } = useClient();
+  const { role: backendRole } = useBackendUser();
+  // Simple role-based admin visibility could be added by consulting auth store if needed.
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -137,6 +140,23 @@ export function Sidebar({ className }: SidebarProps) {
               </Link>
             );
           })}
+
+          {/* Admin section (Admin/GOD) */}
+          {(backendRole === 'ADMIN' || backendRole === 'GOD') && (
+            <Link href='/admin/manager-requests'>
+              <Button
+                variant={pathname.startsWith('/admin') ? 'secondary' : 'ghost'}
+                className={cn(
+                  'w-full transition-all duration-200',
+                  isCollapsed ? 'justify-center px-2' : 'justify-start'
+                )}
+                title={isCollapsed ? 'Admin' : undefined}
+              >
+                <UserCog className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
+                {!isCollapsed && <span className='truncate'>Admin</span>}
+              </Button>
+            </Link>
+          )}
 
           {/* Client Actions Section */}
           {activeClient && (
@@ -243,22 +263,8 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
       </div>
 
-      {/* Profile Section - Bottom */}
-      <div className='border-t border-gray-100 p-4'>
-        <Link href='/profile'>
-          <Button
-            variant='ghost'
-            className={cn(
-              'w-full transition-all duration-200',
-              isCollapsed ? 'justify-center px-2' : 'justify-start'
-            )}
-            title={isCollapsed ? 'Perfil' : undefined}
-          >
-            <UserCog className={cn('h-4 w-4', !isCollapsed && 'mr-2')} />
-            {!isCollapsed && <span className='truncate'>Perfil</span>}
-          </Button>
-        </Link>
-      </div>
+      {/* Admin link (visible by route checks elsewhere) - keep UX simple */}
+      {/* Optionally render admin section if user has role ADMIN/GOD via page guard */}
 
       {/* Recent Activity - Bottom Section */}
       {!isCollapsed && (

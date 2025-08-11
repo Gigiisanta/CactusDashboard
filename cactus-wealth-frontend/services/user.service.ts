@@ -15,10 +15,8 @@ export class UserService {
   static async getAdvisorsWithStats(): Promise<UserWithStats[]> {
     const response = await fetch('/api/v1/users/advisors', {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -34,10 +32,8 @@ export class UserService {
   static async linkAdvisor(advisorId: number): Promise<void> {
     const response = await fetch('/api/v1/users/advisors/link', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ advisor_id: advisorId }),
     });
 
@@ -52,10 +48,8 @@ export class UserService {
   static async unlinkAdvisor(advisorId: number): Promise<void> {
     const response = await fetch('/api/v1/users/advisors/unlink', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ advisor_id: advisorId }),
     });
 
@@ -70,10 +64,8 @@ export class UserService {
   static async getUnassignedAdvisors(): Promise<UserWithStats[]> {
     const response = await fetch('/api/v1/users/advisors/unassigned', {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
     });
 
     if (!response.ok) {

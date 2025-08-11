@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { DashboardMetrics } from '@/types';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
-import { useAuth } from '@/stores/auth.store';
+import { useBackendUser } from '@/hooks/useBackendUser';
 import { 
   Users, 
   TrendingUp, 
@@ -22,7 +22,7 @@ interface DashboardMetricsCardProps {
 }
 
 export function DashboardMetricsCard({ className }: DashboardMetricsCardProps) {
-  const { user } = useAuth();
+  const { role } = useBackendUser();
   const { metrics, loading, error } = useDashboardMetrics();
 
   const formatCurrency = (amount: number) => {
@@ -34,7 +34,7 @@ export function DashboardMetricsCard({ className }: DashboardMetricsCardProps) {
     }).format(amount);
   };
 
-  if (!user || (user.role !== 'MANAGER' && user.role !== 'ADVISOR')) {
+  if (!role || (role !== 'MANAGER' && role !== 'ADVISOR')) {
     return null;
   }
 
@@ -78,7 +78,7 @@ export function DashboardMetricsCard({ className }: DashboardMetricsCardProps) {
     return null;
   }
 
-  const isManager = user.role === 'MANAGER';
+  const isManager = role === 'MANAGER';
 
   return (
     <div className={className}>

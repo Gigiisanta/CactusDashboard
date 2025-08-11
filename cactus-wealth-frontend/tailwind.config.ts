@@ -112,7 +112,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [require('@tailwindcss/forms'), require('tailwindcss-animate')],
 };
 
 export default config;

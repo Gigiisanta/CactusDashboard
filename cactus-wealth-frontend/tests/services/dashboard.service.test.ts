@@ -1,19 +1,18 @@
+import { vi } from 'vitest';
 import { DashboardService } from '@/services/dashboard.service';
 import { apiClient } from '@/lib/api';
 
-// Mock the API client
-jest.mock('@/lib/api', () => ({
+// Mock the API client (Vitest)
+vi.mock('@/lib/api', () => ({
   apiClient: {
-    getDashboardSummary: jest.fn(),
-    getAumHistory: jest.fn(),
+    getDashboardSummary: vi.fn(),
+    getAumHistory: vi.fn(),
   },
 }));
 
 describe('DashboardService', () => {
-  const { apiClient } = require('@/lib/api');
-
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('getDashboardSummary', () => {

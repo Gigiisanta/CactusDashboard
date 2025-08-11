@@ -1,7 +1,7 @@
 'use client';
 import { ReactNode } from 'react';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
-import { Toaster } from '@/components/ui/sonner';
+// Removed custom Toaster wrapper; rely on minimal UI
 import { NextAuthProvider } from '@/components/auth/NextAuthProvider';
 
 export function ClientRoot({ children }: { children: ReactNode }) {
@@ -9,7 +9,6 @@ export function ClientRoot({ children }: { children: ReactNode }) {
     <ErrorBoundary>
       <NextAuthProvider>
         {children}
-        <Toaster />
       </NextAuthProvider>
     </ErrorBoundary>
   );

@@ -1,35 +1,36 @@
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
+import { vi } from 'vitest';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 // Mock WebSocket
 const mockWebSocket = {
-  addEventListener: jest.fn(),
-  removeEventListener: jest.fn(),
-  close: jest.fn(),
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  close: vi.fn(),
   readyState: 1,
 };
 
-global.WebSocket = jest.fn(() => mockWebSocket) as any;
+global.WebSocket = vi.fn(() => mockWebSocket) as any;
 
 // Mock websocket service
-jest.mock('@/services/websocket.service', () => ({
+vi.mock('@/services/websocket.service', () => ({
   websocketService: {
-    connect: jest.fn(),
-    disconnect: jest.fn(),
-    send: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    isConnected: jest.fn(() => false),
-    getConnectionState: jest.fn(() => 'closed'),
-    requestConnectionStats: jest.fn(),
-    on: jest.fn(),
-    off: jest.fn(),
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    send: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    isConnected: vi.fn(() => false),
+    getConnectionState: vi.fn(() => 'closed'),
+    requestConnectionStats: vi.fn(),
+    on: vi.fn(),
+    off: vi.fn(),
   },
 }));
 
 describe('useWebSocket', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('initializes with empty state', () => {

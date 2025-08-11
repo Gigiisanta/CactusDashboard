@@ -25,7 +25,7 @@ export interface RetryConfig {
 
 class RobustErrorHandler {
   private connectionState: ConnectionState = {
-    isOnline: navigator.onLine,
+    isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
     backendConnected: false,
     lastError: null,
     retryCount: 0,

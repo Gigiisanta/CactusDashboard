@@ -28,6 +28,28 @@ class UserUpdate(BaseModel):
     username: str | None = None
 
 
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class ManagerChangeRequest(BaseModel):
+    desired_manager_id: int
+
+
+class ManagerChangeRequestRead(BaseModel):
+    id: int
+    advisor_id: int
+    desired_manager_id: int
+    status: str
+    created_at: datetime
+    decided_at: datetime | None
+    decided_by_user_id: int | None
+
+    class Config:
+        from_attributes = True
+
+
 class ClientCreate(BaseModel):
     """Schema for creating a new client."""
 

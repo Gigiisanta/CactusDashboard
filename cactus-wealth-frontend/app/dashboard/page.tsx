@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardMetricsCard } from '@/components/dashboard/DashboardMetricsCard';
 import { AdvisorManagement } from '@/components/dashboard/AdvisorManagement';
 import { useAuthHybrid } from '@/hooks/useAuthHybrid';
+import { useBackendUser } from '@/hooks/useBackendUser';
 
 // Lazy load heavy components
 const DashboardKPIs = lazy(() => import('./components/DashboardKPIs'));
@@ -68,7 +69,8 @@ const DashboardActionsSkeleton = () => (
 
 export default function DashboardPage() {
   const { user } = useAuthHybrid();
-  const isManagerOrAdvisor = user?.role === 'MANAGER' || user?.role === 'ADVISOR';
+  const { role } = useBackendUser();
+  const isManagerOrAdvisor = role === 'MANAGER' || role === 'ADVISOR';
 
   return (
     <div className='space-y-6'>
@@ -76,7 +78,7 @@ export default function DashboardPage() {
         <h1 className='text-3xl font-bold text-slate-900'>Dashboard</h1>
         <p className='text-slate-600'>
           {isManagerOrAdvisor 
-            ? `Resumen de ${user?.role === 'MANAGER' ? 'tu equipo' : 'tu cartera'} y métricas clave`
+            ? `Resumen de ${role === 'MANAGER' ? 'tu equipo' : 'tu cartera'} y métricas clave`
             : 'Resumen de tu cartera de clientes y métricas clave'
           }
         </p>
@@ -93,7 +95,7 @@ export default function DashboardPage() {
       )}
 
       {/* Gestión de asesores para managers */}
-      {user?.role === 'MANAGER' && (
+      {role === 'MANAGER' && (
         <AdvisorManagement />
       )}
 

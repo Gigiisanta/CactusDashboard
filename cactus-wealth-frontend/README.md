@@ -110,6 +110,24 @@ The frontend integrates with the following backend endpoints:
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
 
+### Testing
+
+- Unit/Integration (Vitest):
+  - `npm run test` – run tests
+  - `npm run test:watch` – watch mode
+  - `npm run test:ci` – CI mode with coverage (lcov, html)
+  - `npm run test:coverage` – local coverage report
+- E2E (Playwright):
+  - `npm run e2e` – headless run
+  - `npm run e2e:ui` – UI mode
+  - `npm run e2e:report` – open report
+- Legacy Jest (temporal, fallback):
+  - `npm run test:legacy`
+
+Task runner (project root):
+- `task test:frontend` – Vitest CI for frontend
+- `task test:all` – Backend pytest + Frontend Vitest, y Jest legado opcional
+
 ### Key Features Implementation
 
 #### 1. Authentication Flow

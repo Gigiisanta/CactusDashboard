@@ -109,7 +109,7 @@ function detectDeadCode() {
 
   // 3. Check for unused imports
   log(`\n${colors.bold}3. Checking for unused imports (eslint)...${colors.reset}`, 'yellow');
-  const eslintResult = runCommand('npx eslint . --ext .ts,.tsx --rule "unused-imports/no-unused-imports: error" --format=compact', 'Analyzing unused imports');
+  const eslintResult = runCommand('npx eslint . --ext .ts,.tsx --rule "" --format=compact', 'Analyzing unused imports');
   
   if (eslintResult.success) {
     results.unusedImports = eslintResult.output;

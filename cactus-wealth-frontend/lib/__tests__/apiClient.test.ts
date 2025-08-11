@@ -1,10 +1,10 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
-import { useAuthStore } from '@/stores/auth.store';
+// Auth store removed; adjust tests to avoid referencing it
+const useAuthStore = (() => ({})) as any;
 import { isTokenExpired } from '@/lib/token-utils';
 
 // Mock dependencies before importing the module
 jest.mock('axios');
-jest.mock('@/stores/auth.store');
 jest.mock('@/lib/token-utils');
 
 const mockedAxios = axios as jest.Mocked<typeof axios>;

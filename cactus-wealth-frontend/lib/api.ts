@@ -16,8 +16,8 @@ import {
 } from '@/types';
 import { apiClientInterceptor } from './apiClient';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// Route all requests through Next.js proxy
+const API_BASE_URL = '';
 
 class ApiClient {
   private baseURL: string;
@@ -37,7 +37,7 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`;
+    const url = `/api/v1${endpoint}`;
 
     const config: RequestInit = {
       ...options,
@@ -86,7 +86,7 @@ class ApiClient {
     params.append('client_id', '');
     params.append('client_secret', '');
 
-    const response = await fetch(`${this.baseURL}/login/access-token`, {
+    const response = await fetch(`/api/v1/auth/login/access-token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -109,7 +109,7 @@ class ApiClient {
   }
 
   async verifyGoogleToken(accessToken: string): Promise<Token> {
-    const response = await fetch(`${this.baseURL}/auth/google/verify`, {
+    const response = await fetch(`/api/v1/auth/google/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -186,12 +186,9 @@ class ApiClient {
   }
 
   async downloadPortfolioReport(portfolioId: number): Promise<Blob> {
-    const response = await fetch(
-      `${this.baseURL}/portfolios/${portfolioId}/report/download`,
-      {
-        headers: this.getAuthHeaders(),
-      }
-    );
+    const response = await fetch(`/api/v1/portfolios/${portfolioId}/report/download`, {
+      headers: this.getAuthHeaders(),
+    });
 
     if (!response.ok) {
       const errorData: ApiError = await response.json();

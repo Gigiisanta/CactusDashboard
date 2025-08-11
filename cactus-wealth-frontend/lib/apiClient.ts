@@ -1,8 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
-import { getToken } from 'next-auth/jwt';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// Use Next.js internal proxy for all API calls
+const API_BASE_URL = '/api/v1';
 
 export class ApiClientInterceptor {
   private client: AxiosInstance;

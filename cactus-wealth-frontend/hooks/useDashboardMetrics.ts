@@ -7,16 +7,16 @@
 import { useState, useEffect } from 'react';
 import { DashboardMetrics } from '@/types';
 import { DashboardService } from '@/services/dashboard.service';
-import { useAuth } from '@/stores/auth.store';
+import { useBackendUser } from '@/hooks/useBackendUser';
 
 export const useDashboardMetrics = () => {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { role } = useBackendUser();
 
   const fetchMetrics = async () => {
-    if (!user || (user.role !== 'MANAGER' && user.role !== 'ADVISOR')) {
+    if (!role || (role !== 'MANAGER' && role !== 'ADVISOR')) {
       setLoading(false);
       return;
     }
@@ -35,7 +35,7 @@ export const useDashboardMetrics = () => {
 
   useEffect(() => {
     fetchMetrics();
-  }, [user?.id, user?.role]);
+  }, [role]);
 
   return {
     metrics,

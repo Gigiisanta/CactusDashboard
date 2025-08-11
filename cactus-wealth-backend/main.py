@@ -33,29 +33,26 @@ redis_client: redis.Redis | None = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager."""
+    """Application lifespan manager - OPTIMIZED."""
     global redis_client
 
     # Startup
-    logger.info("Starting Cactus Wealth Backend")
+    logger.info("Starting Cactus Wealth Backend (OPTIMIZED)")
 
-    # Initialize Redis
+    # Initialize Redis with faster timeout
     try:
         redis_client = redis.from_url(
             settings.REDIS_URL,
             encoding="utf-8",
             decode_responses=True,
-            socket_connect_timeout=5,
-            socket_timeout=5,
+            socket_connect_timeout=2,  # Reduced from 5
+            socket_timeout=2,          # Reduced from 5
         )
         await redis_client.ping()
         logger.info("Redis connected successfully")
     except Exception as e:
         logger.warning(f"Redis connection failed: {e}")
         redis_client = None
-
-    # Create database tables
-    # (Eliminado: create_tables(engine))
 
     yield
 
@@ -76,7 +73,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Add middleware for performance and security
+# Add middleware for performance and security (optimized order)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -85,12 +82,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add compression middleware
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+# Add compression middleware only for production
+if not settings.DEBUG:
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Add custom middleware
-app.middleware("http")(performance_middleware)
-app.middleware("http")(log_request)
+# Add custom middleware only if debug is enabled
+if settings.DEBUG:
+    app.middleware("http")(performance_middleware)
+    app.middleware("http")(log_request)
+
 app.middleware("http")(add_security_headers)
 
 # Middleware de logging global eliminado para evitar conflictos con la validación de FastAPI
@@ -109,7 +109,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         path=request.url.path,
         method=request.method,
         error=str(exc),
-        exc_info=True,
+        # Removed exc_info=True to prevent recursion
     )
 
     return JSONResponse(
@@ -132,7 +132,16 @@ async def root():
         "message": "Cactus Wealth API",
         "version": "1.0.0",
         "docs": "/docs",
-        "health": "/health",
+        "health": "/api/v1/health",
+    }
+
+
+@app.get("/health")
+async def root_health():
+    """Root health check endpoint."""
+    return {
+        "status": "healthy",
+        "message": "Cactus Wealth API is running"
     }
 
 

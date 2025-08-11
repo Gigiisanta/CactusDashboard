@@ -47,6 +47,7 @@ def create_tables() -> None:
         ModelPortfolio,
         ModelPortfolioPosition,
         Notification,
+        ManagerChangeRequest,
         Portfolio,
         PortfolioSnapshot,
         Position,
@@ -68,3 +69,8 @@ def get_session() -> Generator[Session, None, None]:
         raise
     finally:
         session.close()
+
+
+def get_db() -> Generator[Session, None, None]:
+    """Alias for get_session for compatibility."""
+    return get_session()

@@ -1,0 +1,201 @@
+# Estándares de Desarrollo - CactusDashboard
+
+## 🐍 **Python (Backend)**
+
+### Estructura y Convenciones
+- **Modelos**: Usar SQLModel para modelos de base de datos
+- **Esquemas**: Pydantic para validación y serialización
+- **Servicios**: Lógica de negocio en `services/`
+- **Repositorios**: Acceso a datos en `repositories/`
+- **Endpoints**: Organizados por dominio en `api/v1/endpoints/`
+
+### Configuración
+```python
+# Usar Settings de Pydantic para configuración
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    database_url: str
+    redis_url: str
+    # ... más configuraciones
+```
+
+### Manejo de Errores
+```python
+# Usar excepciones semánticas
+from fastapi import HTTPException
+
+class DetailedHTTPException(HTTPException):
+    def __init__(self, status_code: int, detail: str):
+        super().__init__(status_code=status_code, detail=detail)
+```
+
+### Testing
+```python
+# Usar pytest con fixtures
+import pytest
+from fastapi.testclient import TestClient
+
+@pytest.fixture
+def client():
+    return TestClient(app)
+
+def test_endpoint(client):
+    response = client.get("/health")
+    assert response.status_code == 200
+```
+
+## ⚛️ **TypeScript/React (Frontend)**
+
+### Estructura de Componentes
+```typescript
+// Componentes funcionales con hooks
+import { useState, useEffect } from 'react'
+
+interface ComponentProps {
+  title: string
+  onAction: (data: any) => void
+}
+
+export function MyComponent({ title, onAction }: ComponentProps) {
+  const [state, setState] = useState()
+  
+  useEffect(() => {
+    // Side effects
+  }, [])
+  
+  return <div>{title}</div>
+}
+```
+
+### Custom Hooks
+```typescript
+// Hooks personalizados para lógica reutilizable
+export function useApi<T>(url: string) {
+  const [data, setData] = useState<T | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  
+  useEffect(() => {
+    fetch(url)
+      .then(res => res.json())
+      .then(setData)
+      .catch(setError)
+      .finally(() => setLoading(false))
+  }, [url])
+  
+  return { data, loading, error }
+}
+```
+
+### Testing con Jest
+```typescript
+import { render, screen } from '@testing-library/react'
+import { MyComponent } from './MyComponent'
+
+describe('MyComponent', () => {
+  it('renders correctly', () => {
+    render(<MyComponent title="Test" onAction={() => {}} />)
+    expect(screen.getByText('Test')).toBeInTheDocument()
+  })
+})
+```
+
+## 🔧 **Convenciones Generales**
+
+### Nomenclatura
+- **Archivos**: kebab-case (`user-profile.tsx`)
+- **Componentes**: PascalCase (`UserProfile`)
+- **Funciones**: camelCase (`getUserData`)
+- **Constantes**: UPPER_SNAKE_CASE (`API_BASE_URL`)
+- **Tipos/Interfaces**: PascalCase (`UserProfile`)
+
+### Imports
+```typescript
+// Orden de imports
+import React from 'react'                    // React
+import { useState } from 'react'             // React hooks
+import { Button } from '@/components/ui'     // Componentes locales
+import { api } from '@/lib/api'              // Utilidades
+import { User } from '@/types'               // Tipos
+import './styles.css'                        // Estilos
+```
+
+### Manejo de Estados
+```typescript
+// Usar estados tipados
+interface UserState {
+  data: User | null
+  loading: boolean
+  error: string | null
+}
+
+const [user, setUser] = useState<UserState>({
+  data: null,
+  loading: false,
+  error: null
+})
+```
+
+## 🧪 **Testing Standards**
+
+### Backend (pytest)
+- **Cobertura**: >90%
+- **Fixtures**: Reutilizables y tipadas
+- **Mocks**: Para servicios externos
+- **Integration**: Tests de endpoints completos
+
+### Frontend (Jest + Testing Library)
+- **Componentes**: Render y interacciones
+- **Hooks**: Custom hooks testing
+- **E2E**: Playwright para flujos completos
+- **Mocks**: MSW para API calls
+
+## 📝 **Documentación**
+
+### Docstrings (Python)
+```python
+def calculate_portfolio_value(assets: List[Asset]) -> float:
+    """
+    Calcula el valor total del portafolio.
+    
+    Args:
+        assets: Lista de activos del portafolio
+        
+    Returns:
+        Valor total calculado
+        
+    Raises:
+        ValueError: Si no hay activos válidos
+    """
+    pass
+```
+
+### JSDoc (TypeScript)
+```typescript
+/**
+ * Calcula el valor total del portafolio
+ * @param assets - Lista de activos del portafolio
+ * @returns Valor total calculado
+ * @throws {Error} Si no hay activos válidos
+ */
+function calculatePortfolioValue(assets: Asset[]): number {
+  // Implementation
+}
+```
+
+## 🔒 **Seguridad**
+
+### Backend
+- Validación con Pydantic
+- Autenticación JWT
+- Rate limiting
+- CORS configurado
+- Variables de entorno para secretos
+
+### Frontend
+- Sanitización de inputs
+- Validación de formularios
+- Manejo seguro de tokens
+- HTTPS obligatorio
+- Content Security Policy

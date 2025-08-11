@@ -1,58 +1,48 @@
 """
-Investment Account Repository for handling investment account data operations.
+Investment account repository for managing investment accounts.
 """
 
 from typing import List, Optional
-from sqlmodel import Session, select
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
+
 from .base_repository import BaseRepository
-from ..models import InvestmentAccount
-from ..schemas import InvestmentAccountCreate, InvestmentAccountUpdate
+from cactus_wealth.models import InvestmentAccount
 
 
 class InvestmentAccountRepository(BaseRepository[InvestmentAccount]):
-    """Repository for investment account operations."""
-
-    def __init__(self, session: Session):
-        super().__init__(session, InvestmentAccount)
-
-    def get_investment_account(self, account_id: int) -> Optional[InvestmentAccount]:
-        """Get an investment account by ID."""
-        return self.get_by_id(account_id)
-
-    def get_investment_accounts_by_client(self, client_id: int) -> List[InvestmentAccount]:
+    """Repository for InvestmentAccount model operations."""
+    
+    def __init__(self, db: Session):
+        super().__init__(db, InvestmentAccount)
+    
+    def get_by_client_id(self, client_id: int) -> List[InvestmentAccount]:
         """Get all investment accounts for a specific client."""
-        statement = select(InvestmentAccount).where(InvestmentAccount.client_id == client_id)
-        return list(self.session.exec(statement).all())
-
-    def create_client_investment_account(
-        self, account_data: InvestmentAccountCreate, client_id: int
-    ) -> InvestmentAccount:
-        """Create a new investment account for a client."""
-        account_dict = account_data.model_dump()
-        account_dict["client_id"] = client_id
-        db_account = InvestmentAccount(**account_dict)
+        return self.db.query(InvestmentAccount).filter(InvestmentAccount.client_id == client_id).all()
+    
+    def get_by_account_type(self, account_type: str) -> List[InvestmentAccount]:
+        """Get all investment accounts of a specific type."""
+        return self.db.query(InvestmentAccount).filter(InvestmentAccount.account_type == account_type).all()
+    
+    def get_active_accounts(self) -> List[InvestmentAccount]:
+        """Get all active investment accounts."""
+        return self.db.query(InvestmentAccount).filter(InvestmentAccount.is_active == True).all()
+    
+    def search_accounts(self, query: str, client_id: Optional[int] = None) -> List[InvestmentAccount]:
+        """Search investment accounts by name or account number."""
+        filters = [
+            or_(
+                InvestmentAccount.name.ilike(f"%{query}%"),
+                InvestmentAccount.account_number.ilike(f"%{query}%")
+            )
+        ]
         
-        return self.create(db_account)
-
-    def update_investment_account(
-        self, account_id: int, account_update: InvestmentAccountUpdate
-    ) -> Optional[InvestmentAccount]:
-        """Update an investment account."""
-        account = self.get_by_id(account_id)
-        if not account:
-            return None
+        if client_id:
+            filters.append(InvestmentAccount.client_id == client_id)
         
-        update_data = account_update.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(account, field, value)
-        
-        return self.update(account)
-
-    def delete_investment_account(self, account_id: int) -> bool:
-        """Delete an investment account."""
-        account = self.get_by_id(account_id)
-        if not account:
-            return False
-        
-        self.delete(account)
-        return True
+        return self.db.query(InvestmentAccount).filter(and_(*filters)).all()
+    
+    def get_total_balance_by_client(self, client_id: int) -> float:
+        """Calculate total balance of all investment accounts for a client."""
+        result = self.db.query(InvestmentAccount).filter(InvestmentAccount.client_id == client_id).all()
+        return sum(account.current_balance for account in result if account.current_balance) 

@@ -1,5 +1,5 @@
 # ================================
-# 🚀 OPTIMIZED DEVELOPMENT BUILD
+# 🚀 ULTRA-OPTIMIZED DEVELOPMENT BUILD
 # ================================
 
 # Stage 1: Dependencies installer
@@ -10,8 +10,8 @@ WORKDIR /app
 # Copy ONLY package files for optimal caching
 COPY package.json package-lock.json* ./
 
-# Install dependencies with npm ci for faster, more reliable builds
-RUN npm ci
+# Install ALL dependencies (including dev dependencies for development)
+RUN npm ci && npm cache clean --force
 
 # ================================
 # Stage 2: Development runtime
@@ -21,11 +21,25 @@ FROM node:20-alpine AS development
 
 WORKDIR /app
 
+# Install curl for healthcheck
+RUN apk add --no-cache curl
+
 # Copy dependencies from previous stage
 COPY --from=deps /app/node_modules ./node_modules
 
 # Copy application source
 COPY . .
+
+# Create non-root user with proper permissions
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 -G nodejs
+
+# Fix permissions and create necessary directories
+RUN mkdir -p /app/.next && \
+    chown -R nextjs:nodejs /app && \
+    chmod -R 755 /app
+
+USER nextjs
 
 # Expose port
 EXPOSE 3000
@@ -33,6 +47,11 @@ EXPOSE 3000
 # Set environment
 ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV WATCHPACK_POLLING=true
 
-# Start development server
+# Healthcheck
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:3000 || exit 1
+
+# Start development server with optimizations
 CMD ["npm", "run", "dev"] 

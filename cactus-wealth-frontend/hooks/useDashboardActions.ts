@@ -52,16 +52,10 @@ export function useDashboardActions() {
         setSelectedClientId('');
         if (response.report_id) {
           try {
-            const token = localStorage.getItem('cactus_token');
-            const downloadResponse = await fetch(
-              `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1'}/reports/${response.report_id}/download`,
-              {
-                method: 'GET',
-                headers: {
-                  ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-              }
-            );
+            const downloadResponse = await fetch(`/api/v1/reports/${response.report_id}/download`, {
+              method: 'GET',
+              credentials: 'include',
+            });
             if (downloadResponse.ok) {
               const blob = await downloadResponse.blob();
               const url = window.URL.createObjectURL(blob);

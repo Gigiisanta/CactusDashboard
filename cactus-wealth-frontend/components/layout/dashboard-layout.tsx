@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import { ClientProvider } from '@/context/ClientContext';
 import { Sidebar } from './sidebar';
 import { Header } from './header';
-import { HealthMonitor } from '@/components/HealthMonitor';
+// HealthMonitor removed during pruning
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -15,12 +15,13 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const hasAccessCookie = typeof document !== 'undefined' && document.cookie.includes('access_token=');
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/login');
+    if (status === 'unauthenticated' && !hasAccessCookie) {
+      router.replace('/auth/login');
     }
-  }, [status, router]);
+  }, [status, hasAccessCookie, router]);
 
   if (status === 'loading') {
     return (
@@ -30,9 +31,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  if (!session) {
-    return null;
-  }
+  if (!session && !hasAccessCookie) return null;
 
   return (
     <ClientProvider>
@@ -42,7 +41,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <Sidebar />
           <main className='flex-1 p-6'>{children}</main>
         </div>
-        <HealthMonitor />
+        {/* Health monitor removed */}
       </div>
     </ClientProvider>
   );

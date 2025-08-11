@@ -4,8 +4,9 @@ User repository for user-related database operations.
 
 from sqlmodel import Session, select
 
-from ..models import User, UserRole
+from ..models import User, UserRole, ManagerChangeRequest
 from .base_repository import BaseRepository
+from ..security import verify_password, get_password_hash
 
 
 class UserRepository(BaseRepository[User]):
@@ -166,3 +167,46 @@ class UserRepository(BaseRepository[User]):
         self.session.commit()
         self.session.refresh(user)
         return user
+
+    def change_password(self, user_id: int, current_password: str, new_password: str) -> bool:
+        """Change user password after verifying current password."""
+        user = self.get(user_id)
+        if not user:
+            return False
+        if not verify_password(current_password, user.hashed_password):
+            return False
+        user.hashed_password = get_password_hash(new_password)
+        self.session.add(user)
+        self.session.commit()
+        return True
+
+    # Manager change requests
+    def create_manager_change_request(self, advisor_id: int, desired_manager_id: int) -> ManagerChangeRequest:
+        request = ManagerChangeRequest(advisor_id=advisor_id, desired_manager_id=desired_manager_id, status="PENDING")
+        self.session.add(request)
+        self.session.commit()
+        self.session.refresh(request)
+        return request
+
+    def list_manager_change_requests(self, status: str | None = None) -> list[ManagerChangeRequest]:
+        stmt = select(ManagerChangeRequest)
+        if status:
+            stmt = stmt.where(ManagerChangeRequest.status == status)
+        return list(self.session.exec(stmt).all())
+
+    def decide_manager_change_request(self, request_id: int, approve: bool, decided_by_user_id: int) -> bool:
+        req = self.session.get(ManagerChangeRequest, request_id)
+        if not req or req.status != "PENDING":
+            return False
+        req.status = "APPROVED" if approve else "REJECTED"
+        from datetime import datetime
+        req.decided_at = datetime.utcnow()
+        req.decided_by_user_id = decided_by_user_id
+        if approve:
+            advisor = self.get(req.advisor_id)
+            if advisor:
+                advisor.manager_id = req.desired_manager_id
+                self.session.add(advisor)
+        self.session.add(req)
+        self.session.commit()
+        return True

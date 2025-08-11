@@ -1,4 +1,4 @@
-# 🌵 Cactus Dashboard - Wealth Management Platform
+# 🌵 CactusDashboard - Wealth Management Platform
 
 **Next.js + FastAPI + PostgreSQL + Task Automation**
 
@@ -6,7 +6,18 @@ Una plataforma de gestión financiera de alto rendimiento con sistema de automat
 
 ## 🚀 **INICIO RÁPIDO**
 
-### Desarrollo Local
+### Migración a Podman (Recomendado)
+```bash
+# 1. Migración automática a Podman (más liviano y rápido)
+./scripts/migrate-to-podman.sh
+
+# 2. O migración manual paso a paso
+./scripts/setup-podman.sh
+task podman:verify
+task dev
+```
+
+### Desarrollo Local (Docker)
 ```bash
 # 1. Instalar Task (si no está instalado)
 # macOS: brew install go-task
@@ -44,6 +55,12 @@ task dev:stop     # Detener desarrollo
 task status       # Estado del sistema
 task health       # Verificar salud
 
+# Podman Management
+task podman:status    # Estado de la máquina Podman
+task podman:start     # Iniciar máquina Podman
+task podman:stop      # Detener máquina Podman
+task podman:cleanup   # Limpiar recursos Podman
+
 # AWS Management
 task aws:start    # Iniciar instancia EC2
 task aws:stop     # Detener instancia
@@ -66,11 +83,12 @@ task --list       # Lista de comandos
 **[📚 DOCUMENTATION.md](DOCUMENTATION.md)** - Documentación unificada completa
 
 ### 🔗 Enlaces Rápidos
+- **[Migración a Podman](PODMAN_MIGRATION.md)** - Guía completa de migración
 - **[Configuración Local](DOCUMENTATION.md#configuración-local)** - Setup desarrollo
-- **[AWS Deployment](DOCUMENTATION.md#aws-deployment)** - Despliegue en AWS  
-- **[OAuth Setup](DOCUMENTATION.md#oauth-configuration)** - Configuración Google
-- **[API Docs](DOCUMENTATION.md#api-documentation)** - Endpoints y schemas
-- **[Troubleshooting](DOCUMENTATION.md#troubleshooting)** - Solución de problemas
+- **[AWS Deployment](DOCUMENTATION.md#despliegue-aws)** - Despliegue en AWS  
+- **[OAuth Setup](DOCUMENTATION.md#autenticación)** - Configuración Google
+- **[API Docs](DOCUMENTATION.md#api-y-desarrollo)** - Endpoints y schemas
+- **[Troubleshooting](DOCUMENTATION.md#docker-y-troubleshooting)** - Solución de problemas
 
 ## 🏗️ **ARQUITECTURA**
 
@@ -120,24 +138,20 @@ task --list       # Lista de comandos
 | **Automation** | Task | 3.44.1 |
 | **Infrastructure** | Docker + AWS | Latest |
 
-## 🎉 **MIGRACIÓN COMPLETADA**
+## 📁 **Project Structure**
 
-### ✅ Scripts Unificados
-Todos los scripts dispersos han sido consolidados:
-
-| Script Anterior | Comando Task |
-|----------------|--------------|
-| `start.sh` | `task dev` |
-| `deploy-aws-complete.sh` | `task deploy:aws` |
-| `scripts/aws-instance.sh` | `task aws:*` |
-| `scripts/debug.sh` | `task debug` |
-| `scripts/validate-deployment.sh` | `task validate` |
-
-### 🚀 Beneficios
-- **Unificación**: Un solo sistema de comandos
-- **Consistencia**: Sintaxis uniforme
-- **Documentación**: Ayuda integrada (`task help`)
-- **Mantenibilidad**: Fácil de extender
+```
+CactusDashboard/
+├── cactus-wealth-backend/     # FastAPI backend
+├── cactus-wealth-frontend/    # Next.js frontend
+├── scripts/                   # Scripts directory
+├── config/                   # Configuration files
+├── terraform/                # Infrastructure as Code
+├── Taskfile.yml             # CLI task runner unificado
+├── docker-compose.yml       # Docker configuration unificada
+├── DOCUMENTATION.md         # Documentación consolidada
+└── README.md                # This file
+```
 
 ## 📞 **SOPORTE**
 
@@ -156,198 +170,8 @@ task debug
 ```
 
 ### 📖 Documentación Detallada
-- **[📚 DOCUMENTATION.md](DOCUMENTATION.md)** - Guía completa
-- **[🔄 MIGRATION_TO_TASK.md](MIGRATION_TO_TASK.md)** - Guía de migración
-- **[✅ MIGRATION_COMPLETE.md](MIGRATION_COMPLETE.md)** - Resumen de cambios
+- **[📚 DOCUMENTATION.md](DOCUMENTATION.md)** - Guía completa consolidada
 
 ---
 
 **🎯 Sistema unificado con Task - Todo en un solo lugar**
-
-## 📁 **Project Structure**
-
-```
-CactusDashboard/
-├── cactus-wealth-backend/     # FastAPI backend
-├── cactus-wealth-frontend/    # Next.js frontend
-├── scripts/                   # Scripts directory
-│   └── cactus.sh             # Unified master script
-├── config/                   # Configuration files
-│   └── docker/              # Docker configuration
-├── docs/                     # Documentation
-├── terraform/                # Infrastructure as Code
-├── Taskfile.yml             # CLI task runner
-└── README.md                # This file
-```
-
-## 🔧 **Configuration**
-
-### Environment Variables
-Create `.env` file in the root directory:
-
-```bash
-# OAuth Configuration
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
-
-# Database Configuration
-DATABASE_URL=postgresql://user:password@localhost:5432/cactus_wealth
-
-# JWT Configuration
-SECRET_KEY=your_secret_key
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-# Application Configuration
-BACKEND_URL=http://localhost:8000
-FRONTEND_URL=http://localhost:3000
-```
-
-## 🐛 **Advanced Debugging & Development**
-
-### **Live Debugging Tools**
-
-#### **Local Development Debugging**
-```bash
-# Ver logs en vivo de todos los servicios
-task debug:live:local
-
-# Ver logs específicos
-task debug:logs:backend
-task debug:logs:frontend
-task debug:logs:all
-
-# Debugging avanzado con script dedicado
-./scripts/debug.sh logs           # Logs en vivo
-./scripts/debug.sh status         # Estado detallado
-./scripts/debug.sh health         # Verificar salud
-./scripts/debug.sh ports          # Verificar puertos
-./scripts/debug.sh resources      # Uso de recursos
-./scripts/debug.sh shell:backend  # Shell interactivo backend
-./scripts/debug.sh shell:frontend # Shell interactivo frontend
-./scripts/debug.sh shell:db       # Shell PostgreSQL
-./scripts/debug.sh restart        # Reiniciar servicios
-./scripts/debug.sh rebuild        # Rebuild completo
-```
-
-#### **AWS Production Debugging**
-```bash
-# Ver logs en vivo de AWS
-task debug:live:aws
-
-# Logs específicos de servicios en AWS
-task debug:aws:logs:backend
-task debug:aws:logs:frontend
-task debug:aws:logs:nginx
-
-# Acceso SSH y estado
-task aws:ssh                      # Conectar por SSH
-task aws:status                   # Estado de la instancia
-task aws:health                   # Verificar salud de servicios
-task aws:ip                       # Obtener IP pública
-```
-
-### **AWS Instance Management (Cost Control)**
-```bash
-# Gestión rápida de instancia para ahorrar dinero
-task aws:stop                     # Detener instancia (ahorra dinero)
-task aws:start                    # Iniciar instancia
-task aws:status                   # Ver estado actual
-task aws:costs                    # Estimar costos
-
-# Script dedicado para gestión avanzada
-./scripts/aws-instance.sh stop    # Detener instancia
-./scripts/aws-instance.sh start   # Iniciar instancia
-./scripts/aws-instance.sh status  # Estado detallado
-./scripts/aws-instance.sh ip      # Obtener IP pública
-./scripts/aws-instance.sh logs    # Logs en vivo
-./scripts/aws-instance.sh ssh     # Conectar SSH
-./scripts/aws-instance.sh health  # Verificar salud
-./scripts/aws-instance.sh costs   # Información de costos
-```
-
-### **Development Workflow**
-```bash
-# Flujo típico de desarrollo con debugging
-task setup:dev                   # Configurar entorno
-task docker:up                   # Iniciar servicios
-./scripts/debug.sh health        # Verificar que todo funciona
-./scripts/debug.sh logs          # Ver logs en vivo
-
-# Hacer cambios en el código...
-
-./scripts/debug.sh restart       # Reiniciar servicios
-task test:all                    # Ejecutar tests
-
-# Desplegar a AWS cuando esté listo
-task deploy:aws
-task debug:live:aws             # Verificar deployment
-
-# Detener instancia AWS para ahorrar dinero
-task aws:stop
-```
-
-## 🧪 **Testing**
-
-```bash
-# Run all tests
-task test:all
-
-# Run specific tests
-task test:backend
-task test:frontend
-task test:oauth
-
-# Run integration tests
-task test:integration
-```
-
-## 📊 **Monitoring**
-
-```bash
-# Health check
-task debug:health
-
-# Service status
-task status
-
-# OAuth diagnostics
-task debug:oauth
-```
-
-## 🔒 **Security**
-
-- **OAuth 2.0** with Google authentication
-- **JWT tokens** for API authentication
-- **Environment variables** for sensitive data
-- **HTTPS** in production
-- **Input validation** with Pydantic
-- **SQL injection protection** with SQLModel
-
-## 📈 **Performance**
-
-- **<100ms** webhook latency
-- **40%** memory usage reduction
-- **50%** faster startup time
-- **60%** smaller Docker images
-- **Real-time** event processing
-
-## 🤝 **Contributing**
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `task test:all`
-5. Submit a pull request
-
-## 📄 **License**
-
-This project is licensed under the MIT License.
-
-## 🆘 **Support**
-
-For support and questions:
-- Check the documentation in `docs/`
-- Run diagnostics: `task debug:health`
-- Review logs in `logs/` directory

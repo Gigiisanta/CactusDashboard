@@ -11,8 +11,7 @@ WORKDIR /app
 RUN apk add --no-cache gcc musl-dev libffi-dev postgresql-dev
 
 # Instalar solo dependencias primero para cache óptimo
-COPY ./cactus-wealth-backend/pyproject.toml ./pyproject.toml
-COPY ./cactus-wealth-backend/poetry.lock ./poetry.lock
+COPY pyproject.toml poetry.lock ./
 RUN pip install --no-cache-dir poetry poetry-plugin-export
 RUN poetry export -f requirements.txt --output requirements.txt --without-hashes --only=main
 
@@ -31,12 +30,12 @@ COPY --from=builder /app/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar solo el código fuente necesario
-COPY ./cactus-wealth-backend/src ./src
-COPY ./cactus-wealth-backend/main.py ./main.py
-COPY ./cactus-wealth-backend/entrypoint.sh ./entrypoint.sh
-COPY ./cactus-wealth-backend/entrypoint_worker.sh ./entrypoint_worker.sh
-COPY ./cactus-wealth-backend/alembic.ini ./alembic.ini
-COPY ./cactus-wealth-backend/alembic ./alembic
+COPY src ./src
+COPY main.py ./main.py
+COPY entrypoint.sh ./entrypoint.sh
+COPY entrypoint_worker.sh ./entrypoint_worker.sh
+COPY alembic.ini ./alembic.ini
+COPY alembic ./alembic
 
 RUN chmod +x ./entrypoint.sh ./entrypoint_worker.sh && \
     chown -R appuser:appgroup /app
@@ -48,7 +47,7 @@ ENV PYTHONPATH="/app/src:$PYTHONPATH" \
     PYTHONDONTWRITEBYTECODE=1
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+    CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
 ENTRYPOINT ["./entrypoint.sh"]
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

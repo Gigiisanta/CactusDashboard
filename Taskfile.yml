@@ -4,7 +4,8 @@ vars:
   AWS_INSTANCE_ID: "i-022f3394d98803da8"
   SSH_KEY: "cactus-key.pem"
   COMPOSE_FILE: "docker-compose.yml"
-  PODMAN_COMPOSE: "podman-compose"
+  PODMAN_COMPOSE:
+    sh: 'command -v podman-compose >/dev/null 2>&1 && echo podman-compose || echo "python3 -m podman_compose"'
 
 tasks:
   # ===== DESARROLLO LOCAL =====
@@ -153,7 +154,7 @@ tasks:
         set -e
         SERVICES="cactus-backend cactus-frontend cactus-db cactus-redis cactus-nginx cactus-prometheus cactus-grafana"
         ensure_targets() {
-          RUNNING_NAMES="$(podman ps --format '{{.Names}}')"
+          RUNNING_NAMES="$(podman ps --format '{{`{{.Names}}`}}')"
           TARGETS=""
           for s in $SERVICES; do
             if echo "$RUNNING_NAMES" | grep -qx "$s"; then
@@ -162,30 +163,28 @@ tasks:
           done
         }
 
-        echo "🔎 Verificando Podman..."
-        if ! podman info >/dev/null 2>&1; then
-          echo "🔧 Podman no disponible. Intentando iniciar máquina..."
-          task --silent podman:ensure || true
-        fi
+        echo "🔎 Asegurando Podman..."
+        task --silent podman:ensure || true
 
+        echo "🚀 Asegurando stack activo (up -d idempotente)..."
+        {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d
         echo "🔎 Detectando contenedores activos..."
+        sleep 5
         ensure_targets
-        if [ -z "$TARGETS" ]; then
-          echo "🚀 No hay contenedores. Iniciando stack con podman-compose..."
-          {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d
-          echo "⏳ Esperando inicio de servicios..."
-          sleep 8
-          ensure_targets
-        fi
 
         if [ -z "$TARGETS" ]; then
           echo "❌ No se pudieron iniciar los servicios. Revisa: task debug"
           exit 1
         fi
 
-        echo "📦 Mostrando logs de:$TARGETS"
-        # Usamos podman logs para evitar la limitación con múltiples contenedores en modo remoto
-        exec podman logs -f --tail=50 $TARGETS
+        echo "📦 Mostrando logs (multiplexado por contenedor)..."
+        # Podman remoto no soporta múltiples contenedores en un solo logs
+        # Iniciamos un stream por contenedor y los multiplexamos en esta sesión
+        for name in $TARGETS; do
+          echo "=== $name ==="
+          (stdbuf -oL -eL podman logs -f --tail=50 "$name" | sed -u "s/^/[${name}] /") &
+        done
+        wait
 
   logs:backend:
     desc: "📺 Ver logs del backend"
@@ -194,13 +193,11 @@ tasks:
       - echo "📺 Logs del backend (Ctrl+C para salir)..."
       - |
         set -e
-        echo "🔎 Verificando Podman..."
-        podman info >/dev/null 2>&1 || task --silent podman:ensure || true
-        if ! podman ps --format '{{.Names}}' | grep -qx 'cactus-backend'; then
-          echo "🚀 Iniciando backend con podman-compose..."
-          {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d backend
-          sleep 5
-        fi
+        echo "🔎 Asegurando Podman..."
+        task --silent podman:ensure || true
+        echo "🚀 Asegurando backend activo..."
+        {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d backend
+        sleep 3
         echo "📦 Mostrando logs de: cactus-backend"
         exec podman logs -f --tail=50 cactus-backend
 
@@ -211,13 +208,11 @@ tasks:
       - echo "📺 Logs del frontend (Ctrl+C para salir)..."
       - |
         set -e
-        echo "🔎 Verificando Podman..."
-        podman info >/dev/null 2>&1 || task --silent podman:ensure || true
-        if ! podman ps --format '{{.Names}}' | grep -qx 'cactus-frontend'; then
-          echo "🚀 Iniciando frontend con podman-compose..."
-          {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d frontend
-          sleep 5
-        fi
+        echo "🔎 Asegurando Podman..."
+        task --silent podman:ensure || true
+        echo "🚀 Asegurando frontend activo..."
+        {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d frontend
+        sleep 3
         echo "📦 Mostrando logs de: cactus-frontend"
         exec podman logs -f --tail=50 cactus-frontend
 
@@ -228,13 +223,11 @@ tasks:
       - echo "📺 Logs de la base de datos (Ctrl+C para salir)..."
       - |
         set -e
-        echo "🔎 Verificando Podman..."
-        podman info >/dev/null 2>&1 || task --silent podman:ensure || true
-        if ! podman ps --format '{{.Names}}' | grep -qx 'cactus-db'; then
-          echo "🚀 Iniciando base de datos con podman-compose..."
-          {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d db
-          sleep 5
-        fi
+        echo "🔎 Asegurando Podman..."
+        task --silent podman:ensure || true
+        echo "🚀 Asegurando base de datos activa..."
+        {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d db
+        sleep 3
         echo "📦 Mostrando logs de: cactus-db"
         exec podman logs -f --tail=50 cactus-db
 
@@ -714,6 +707,8 @@ tasks:
       - echo "🧪 Ejecutando todos los tests..."
       - task: test:backend
       - task: test:frontend
+      - echo "🧪 Ejecutando Jest legado en frontend (opcional)..."
+      - cd cactus-wealth-frontend && npm run test:legacy --silent || true
 
   test:backend:
     desc: "🧪 Tests del backend"
@@ -726,8 +721,8 @@ tasks:
     desc: "🧪 Tests del frontend"
     silent: true
     cmds:
-      - echo "🧪 Tests del frontend..."
-      - cd cactus-wealth-frontend && npm test
+      - echo "🧪 Tests del frontend (Vitest CI)..."
+      - cd cactus-wealth-frontend && npm run test:ci
 
   test:integration:
     desc: "🧪 Tests de integración"
@@ -765,12 +760,13 @@ tasks:
     cmds:
       - echo "📦 Verificando podman-compose..."
       - |
-        if ! test -f "{{.PODMAN_COMPOSE}}"; then
-          echo "🔧 Instalando podman-compose..."
-          pip3 install podman-compose
-          echo "✅ podman-compose instalado"
+        if {{.PODMAN_COMPOSE}} --version >/dev/null 2>&1; then
+          echo "✅ podman-compose disponible";
         else
-          echo "✅ podman-compose ya está disponible"
+          echo "🔧 Instalando podman-compose vía pip...";
+          pip3 install podman-compose >/dev/null 2>&1 || pip install podman-compose;
+          echo "🔗 Verificando funcionamiento tras la instalación...";
+          python3 -m podman_compose --version || exit 1;
         fi
       - echo "🔗 Verificando funcionamiento..."
       - '{{.PODMAN_COMPOSE}} --version'

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserWithStats } from '@/types';
 import { UserService } from '@/services/user.service';
-import { useAuth } from '@/stores/auth.store';
+import { useBackendUser } from '@/hooks/useBackendUser';
 import { Users, UserPlus, UserMinus, TrendingUp, DollarSign, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -23,10 +23,10 @@ export function AdvisorManagement({ className }: AdvisorManagementProps) {
   const [loading, setLoading] = useState(true);
   const [selectedAdvisor, setSelectedAdvisor] = useState<number | null>(null);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
-  const { user } = useAuth();
+  const { role } = useBackendUser();
 
   const fetchData = useCallback(async () => {
-    if (!user || user.role !== 'MANAGER') return;
+    if (role !== 'MANAGER') return;
 
     try {
       setLoading(true);
@@ -42,7 +42,7 @@ export function AdvisorManagement({ className }: AdvisorManagementProps) {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [role]);
 
   useEffect(() => {
     fetchData();
@@ -83,7 +83,7 @@ export function AdvisorManagement({ className }: AdvisorManagementProps) {
     }).format(amount);
   };
 
-  if (user?.role !== 'MANAGER') {
+  if (role !== 'MANAGER') {
     return null;
   }
 

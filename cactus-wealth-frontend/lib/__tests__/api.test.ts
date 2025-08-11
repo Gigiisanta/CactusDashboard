@@ -946,8 +946,8 @@ describe('ApiClient', () => {
       expect(result).toEqual({});
     });
 
-    it('handles network errors', async () => {
-      mockFetch.mockRejectedValue(new Error('Network error'));
+  it('handles network errors', async () => {
+      mockFetch.mockRejectedValue(new Error('Network error occurred'));
 
       await expect(apiClient.register({
         username: 'test',

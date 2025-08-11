@@ -6,10 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
 import { User, Settings, Shield, Bell } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  // This page is now deprecated; redirect handled by middleware or link changes.
+  // Keep minimal UI for backward compatibility.
   const [activeSection, setActiveSection] = useState('security');
+
+  useEffect(() => {
+    // Redirect users to the unified Profile page
+    router.replace('/profile');
+  }, [router]);
 
   const sections = [
     {
@@ -37,7 +46,7 @@ export default function SettingsPage() {
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <Settings className="h-8 w-8 text-cactus-600" />
-          <h1 className="text-3xl font-bold text-cactus-700">Configuración</h1>
+          <h1 className="text-3xl font-bold text-cactus-700">Configuración (movida a Perfil)</h1>
         </div>
         <p className="text-sage-600">
           Gestiona tu cuenta, seguridad y preferencias
@@ -122,7 +131,7 @@ export default function SettingsPage() {
                   Información del Perfil
                 </CardTitle>
                 <p className="text-sm text-sage-600">
-                  Gestiona tu información personal y preferencias de cuenta
+                  Esta sección fue unificada en &quot;Perfil&quot;.
                 </p>
               </CardHeader>
               <CardContent>
@@ -130,7 +139,7 @@ export default function SettingsPage() {
                   <div className="text-center py-8">
                     <User className="h-12 w-12 text-sage-400 mx-auto mb-4" />
                     <p className="text-sage-600">
-                      La configuración del perfil estará disponible próximamente.
+                      Usa el menú Perfil para gestionar tu cuenta.
                     </p>
                   </div>
                 </div>

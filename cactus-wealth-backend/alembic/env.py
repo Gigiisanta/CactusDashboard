@@ -5,17 +5,23 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+# Signal early that Alembic is running to prevent heavy package side-effects
+os.environ["ALEMBIC_RUNNING"] = "1"
+
 # Add src directory to Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from cactus_wealth.core.config import settings
+
+# Signal to application that Alembic is running to avoid heavy imports
+os.environ["ALEMBIC_RUNNING"] = "1"
 
 # Import SQLModel and models
 from sqlmodel import SQLModel
 
 # Importar explícitamente todos los modelos para registrar metadata
 from cactus_wealth.models import (
-    User, Client, ClientActivity, ClientNote, Asset, Portfolio, Position, PortfolioSnapshot, Report, InvestmentAccount, InsurancePolicy, Notification, ModelPortfolio, ModelPortfolioPosition
+    User, Client, ClientActivity, ClientNote, Asset, Portfolio, Position, PortfolioSnapshot, Report, InvestmentAccount, InsurancePolicy, Notification, ModelPortfolio, ModelPortfolioPosition, ManagerChangeRequest
 )
 
 # this is the Alembic Config object, which provides

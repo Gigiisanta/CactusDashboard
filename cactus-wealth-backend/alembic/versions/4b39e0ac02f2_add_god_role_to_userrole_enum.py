@@ -20,8 +20,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Add 'GOD' value to the userrole enum
-    op.execute("ALTER TYPE userrole ADD VALUE 'GOD'")
+    # Add 'GOD' value to the userrole enum (Postgres only). For SQLite, no-op.
+    from sqlalchemy import text
+    bind = op.get_bind()
+    if bind.dialect.name == 'postgresql':
+        op.execute("ALTER TYPE userrole ADD VALUE 'GOD'")
+    else:
+        # SQLite: enums are just CHECK constraints; nothing to do
+        pass
 
 
 def downgrade() -> None:

@@ -1,29 +1,30 @@
+import { vi } from 'vitest';
 import { PortfolioService } from '@/services/portfolio.service';
 
 // Mock the API client
-jest.mock('@/lib/api', () => ({
+vi.mock('@/lib/api', () => ({
   apiClient: {
-    getPortfolioValuation: jest.fn(),
-    downloadPortfolioReport: jest.fn(),
-    generateReport: jest.fn(),
-    getModelPortfolios: jest.fn(),
-    getModelPortfolio: jest.fn(),
-    createModelPortfolio: jest.fn(),
-    updateModelPortfolio: jest.fn(),
-    deleteModelPortfolio: jest.fn(),
-    addModelPortfolioPosition: jest.fn(),
-    updateModelPortfolioPosition: jest.fn(),
-    deleteModelPortfolioPosition: jest.fn(),
-    searchAssets: jest.fn(),
-    backtestPortfolio: jest.fn(),
+    getPortfolioValuation: vi.fn(),
+    downloadPortfolioReport: vi.fn(),
+    generateReport: vi.fn(),
+    getModelPortfolios: vi.fn(),
+    getModelPortfolio: vi.fn(),
+    createModelPortfolio: vi.fn(),
+    updateModelPortfolio: vi.fn(),
+    deleteModelPortfolio: vi.fn(),
+    addModelPortfolioPosition: vi.fn(),
+    updateModelPortfolioPosition: vi.fn(),
+    deleteModelPortfolioPosition: vi.fn(),
+    searchAssets: vi.fn(),
+    backtestPortfolio: vi.fn(),
   },
 }));
 
-describe('PortfolioService', () => {
-  const { apiClient } = require('@/lib/api');
+import { apiClient } from '@/lib/api';
 
+describe('PortfolioService', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('getPortfolioValuation', () => {

@@ -2,6 +2,16 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 
+function setAuthCookie(token: string) {
+  try {
+    // Non-HTTPOnly cookie (frontend-controlled). For production, swap to API route that sets httpOnly.
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toUTCString();
+    document.cookie = `access_token=${token}; Path=/; Expires=${expires}; SameSite=Lax`;
+  } catch (_) {
+    // ignore
+  }
+}
+
 interface LoginCredentials {
   username: string;
   password: string;
@@ -29,16 +39,18 @@ export function useTraditionalAuth(): UseTraditionalAuthReturn {
     setError(null);
 
     try {
-      // Prepare form data for OAuth2PasswordRequestForm
-      const formData = new FormData();
-      formData.append('username', credentials.username);
-      formData.append('password', credentials.password);
-      formData.append('grant_type', 'password');
+      // Send as application/x-www-form-urlencoded for OAuth2PasswordRequestForm compatibility
+      const params = new URLSearchParams();
+      params.set('username', credentials.username);
+      params.set('password', credentials.password);
+      params.set('grant_type', 'password');
 
-      // Call the backend login endpoint
       const response = await fetch('/api/v1/auth/login/access-token', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
       });
 
       if (!response.ok) {
@@ -48,12 +60,18 @@ export function useTraditionalAuth(): UseTraditionalAuthReturn {
 
       const data: LoginResponse = await response.json();
 
-      // Store the token in localStorage for now
-      // In a production app, you might want to use httpOnly cookies
-      localStorage.setItem('access_token', data.access_token);
+      // Persist HTTPOnly cookie via server API
+      await fetch('/api/auth/session/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_token: data.access_token, expires_in: 60 * 60 * 24 }),
+      });
 
-      // Redirect to dashboard
-      router.push('/dashboard');
+      // Optionally keep a non-sensitive hint in localStorage for client UX
+      localStorage.setItem('has_session', '1');
+
+      // Redirect to dashboard (replace to avoid back button returning to login)
+      router.replace('/dashboard');
       return true;
 
     } catch (err) {

@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Debug Google OAuth - Cactus Wealth</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+            line-height: 1.6;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .success { 
+            background-color: #d4edda; 
+            border-color: #28a745; 
+            color: #155724;
+        }
+        .error { 
+            background-color: #f8d7da; 
+            border-color: #dc3545; 
+            color: #721c24;
+        }
+        .info { 
+            background-color: #d1ecf1; 
+            border-color: #17a2b8; 
+            color: #0c5460;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 8px 8px 8px 0;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { 
+            background-color: #6c757d; 
+            cursor: not-allowed;
+        }
+        .google-btn {
+            background-color: #4285f4;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            padding: 14px 28px;
+        }
+        .google-btn:hover { background-color: #3367d6; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            border: 1px solid #e9ecef;
+            font-size: 12px;
+        }
+        .log {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .step {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 6px;
+            background: white;
+        }
+        .step-number {
+            background: #007bff;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .step-content {
+            flex: 1;
+        }
+        .status-icon {
+            margin-left: 10px;
+            font-size: 20px;
+        }
+        .status-pending { color: #ffc107; }
+        .status-success { color: #28a745; }
+        .status-error { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Google OAuth - Cactus Wealth</h1>
+        <p>Esta página te ayudará a diagnosticar exactamente qué está fallando en el flujo de Google OAuth.</p>
+        
+        <div class="test-section info">
+            <h3>📋 Estado del Sistema</h3>
+            <div id="system-status">Inicializando...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Paso 1: Verificar Backend</h3>
+            <button onclick="testBackend()">Probar Backend</button>
+            <button onclick="testGoogleConfig()">Probar Config Google</button>
+            <div id="backend-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🌐 Paso 2: Verificar Frontend</h3>
+            <button onclick="testFrontend()">Probar Frontend</button>
+            <button onclick="testEnvironmentVars()">Verificar Variables de Entorno</button>
+            <div id="frontend-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔐 Paso 3: Probar Flujo OAuth</h3>
+            <button class="google-btn" onclick="testOAuthFlow()">
+                <svg width="20" height="20" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Probar Flujo Completo OAuth
+            </button>
+            <div id="oauth-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Logs de Debug</h3>
+            <div id="debug-logs" class="log"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Resumen de Pruebas</h3>
+            <div id="test-summary"></div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:8000/api/v1';
+        const FRONTEND_URL = 'http://localhost:3000';
+        let testResults = [];
+        let googleConfig = null;
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('debug-logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}\n`;
+            logsDiv.textContent += logEntry;
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function updateSystemStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('system-status');
+            statusDiv.innerHTML = `<span class="${type}">${message}</span>`;
+        }
+
+        function addTestResult(testName, success, message, data = null) {
+            const result = { 
+                testName, 
+                success, 
+                message, 
+                data, 
+                timestamp: new Date(),
+                type: success ? 'success' : 'error'
+            };
+            testResults.push(result);
+            
+            const summaryDiv = document.getElementById('test-summary');
+            const resultClass = success ? 'success' : 'error';
+            const icon = success ? '✅' : '❌';
+            
+            const resultHtml = `
+                <div class="step">
+                    <div class="step-number">${testResults.length}</div>
+                    <div class="step-content">
+                        <strong>${testName}</strong><br>
+                        <small>${message}</small>
+                        ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+                    </div>
+                    <div class="status-icon">${icon}</div>
+                </div>
+            `;
+            summaryDiv.innerHTML += resultHtml;
+        }
+
+        function showResult(elementId, success, message, data = null) {
+            const resultDiv = document.getElementById(elementId);
+            const resultClass = success ? 'success' : 'error';
+            const icon = success ? '✅' : '❌';
+            const resultHtml = `
+                <div class="${resultClass}">
+                    ${icon} ${message}
+                    ${data ? `<pre>${JSON.stringify(data, null, 2)}</pre>` : ''}
+                </div>
+            `;
+            resultDiv.innerHTML = resultHtml;
+        }
+
+        async function testBackend() {
+            log('Iniciando prueba de backend...');
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult('backend-results', true, 'Backend está funcionando correctamente', data);
+                    addTestResult('Backend Health Check', true, 'Backend responde correctamente', data);
+                    log('Backend health check: EXITOSO');
+                } else {
+                    showResult('backend-results', false, `Error del backend: ${response.status}`);
+                    addTestResult('Backend Health Check', false, `HTTP ${response.status} error`);
+                    log(`Backend health check: FALLÓ - HTTP ${response.status}`);
+                }
+            } catch (error) {
+                log(`Error de conexión al backend: ${error.message}`, 'error');
+                showResult('backend-results', false, `Error de conexión: ${error.message}`);
+                addTestResult('Backend Health Check', false, `Error de red: ${error.message}`);
+            }
+        }
+
+        async function testGoogleConfig() {
+            log('Obteniendo configuración de Google OAuth...');
+            try {
+                const response = await fetch(`${BACKEND_URL}/auth/google/google/config`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    googleConfig = data;
+                    showResult('backend-results', true, 'Configuración de Google OAuth obtenida', data);
+                    addTestResult('Google OAuth Config', true, 'Configuración cargada correctamente', data);
+                    log('Configuración de Google OAuth: EXITOSA');
+                    
+                    // Verificar que los campos necesarios estén presentes
+                    if (!data.client_id) {
+                        log('ADVERTENCIA: client_id no está configurado', 'warning');
+                        addTestResult('Google Client ID', false, 'client_id está vacío');
+                    } else {
+                        addTestResult('Google Client ID', true, 'client_id configurado correctamente');
+                    }
+                    
+                    if (!data.redirect_uri) {
+                        log('ADVERTENCIA: redirect_uri no está configurado', 'warning');
+                        addTestResult('Google Redirect URI', false, 'redirect_uri está vacío');
+                    } else {
+                        addTestResult('Google Redirect URI', true, 'redirect_uri configurado correctamente');
+                    }
+                    
+                } else {
+                    const errorText = await response.text();
+                    log(`Error obteniendo configuración: ${response.status} - ${errorText}`, 'error');
+                    showResult('backend-results', false, `Error de configuración: ${response.status}`);
+                    addTestResult('Google OAuth Config', false, `HTTP ${response.status} error`);
+                }
+            } catch (error) {
+                log(`Error de red obteniendo configuración: ${error.message}`, 'error');
+                showResult('backend-results', false, `Error de red: ${error.message}`);
+                addTestResult('Google OAuth Config', false, `Error de red: ${error.message}`);
+            }
+        }
+
+        async function testFrontend() {
+            log('Probando conectividad del frontend...');
+            try {
+                const response = await fetch(`${FRONTEND_URL}/login`);
+                
+                if (response.ok) {
+                    const html = await response.text();
+                    const hasGoogleButton = html.includes('Continuar con Google');
+                    const hasGoogleScript = html.includes('accounts.google.com/gsi/client');
+                    
+                    showResult('frontend-results', true, 'Frontend está funcionando', {
+                        status: response.status,
+                        hasGoogleButton,
+                        hasGoogleScript
+                    });
+                    
+                    addTestResult('Frontend Connectivity', true, 'Frontend responde correctamente');
+                    addTestResult('Google Button Present', hasGoogleButton, hasGoogleButton ? 'Botón de Google encontrado' : 'Botón de Google no encontrado');
+                    addTestResult('Google Script Loaded', hasGoogleScript, hasGoogleScript ? 'Script de Google cargado' : 'Script de Google no cargado');
+                    
+                    log('Frontend test: EXITOSO');
+                } else {
+                    log(`Error del frontend: ${response.status}`, 'error');
+                    showResult('frontend-results', false, `Error del frontend: ${response.status}`);
+                    addTestResult('Frontend Connectivity', false, `HTTP ${response.status} error`);
+                }
+            } catch (error) {
+                log(`Error de conexión al frontend: ${error.message}`, 'error');
+                showResult('frontend-results', false, `Error de conexión: ${error.message}`);
+                addTestResult('Frontend Connectivity', false, `Error de red: ${error.message}`);
+            }
+        }
+
+        async function testEnvironmentVars() {
+            log('Verificando variables de entorno...');
+            
+            // Simular verificación de variables de entorno del frontend
+            const envVars = {
+                NEXT_PUBLIC_API_URL: BACKEND_URL,
+                NEXT_PUBLIC_FRONTEND_URL: FRONTEND_URL,
+                NEXT_PUBLIC_GOOGLE_CLIENT_ID: googleConfig?.client_id || 'NO_CONFIGURADO',
+                NEXT_PUBLIC_GOOGLE_REDIRECT_URI: googleConfig?.redirect_uri || 'NO_CONFIGURADO'
+            };
+            
+            const allConfigured = Object.values(envVars).every(v => v !== 'NO_CONFIGURADO');
+            
+            showResult('frontend-results', allConfigured, 'Variables de entorno verificadas', envVars);
+            addTestResult('Environment Variables', allConfigured, allConfigured ? 'Todas las variables configuradas' : 'Algunas variables faltan');
+            
+            log(`Variables de entorno: ${allConfigured ? 'CONFIGURADAS' : 'INCOMPLETAS'}`);
+        }
+
+        async function testOAuthFlow() {
+            log('Iniciando prueba del flujo OAuth completo...');
+            
+            if (!googleConfig) {
+                log('ERROR: No hay configuración de Google disponible. Ejecuta primero "Probar Config Google"', 'error');
+                showResult('oauth-results', false, 'No hay configuración de Google disponible');
+                return;
+            }
+            
+            try {
+                // Generar URL de OAuth
+                const params = new URLSearchParams({
+                    client_id: googleConfig.client_id,
+                    redirect_uri: googleConfig.redirect_uri,
+                    response_type: 'code',
+                    scope: 'openid email profile',
+                    access_type: 'offline',
+                    prompt: 'consent',
+                    state: Math.random().toString(36).substring(2, 15)
+                });
+                
+                const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+                
+                log(`URL de OAuth generada: ${authUrl}`, 'info');
+                showResult('oauth-results', true, 'URL de OAuth generada correctamente', { authUrl });
+                addTestResult('OAuth URL Generation', true, 'URL generada correctamente');
+                
+                // Verificar que la URL es válida
+                try {
+                    new URL(authUrl);
+                    addTestResult('OAuth URL Validation', true, 'URL válida');
+                } catch (e) {
+                    addTestResult('OAuth URL Validation', false, 'URL inválida');
+                }
+                
+                // Verificar que el client_id está en el formato correcto
+                const clientIdValid = googleConfig.client_id.includes('.apps.googleusercontent.com');
+                addTestResult('Client ID Format', clientIdValid, clientIdValid ? 'Formato correcto' : 'Formato incorrecto');
+                
+                // Verificar que el redirect_uri es accesible
+                const redirectUriValid = googleConfig.redirect_uri.startsWith('http');
+                addTestResult('Redirect URI Format', redirectUriValid, redirectUriValid ? 'Formato correcto' : 'Formato incorrecto');
+                
+                log('¿Quieres proceder con la redirección a Google OAuth?', 'info');
+                
+                // Preguntar al usuario si quiere proceder
+                if (confirm('¿Quieres proceder con la autenticación de Google? Esto te redirigirá a Google.')) {
+                    log('Redirigiendo a Google OAuth...', 'info');
+                    window.location.href = authUrl;
+                } else {
+                    log('Redirección cancelada por el usuario', 'info');
+                }
+                
+            } catch (error) {
+                log(`Error en el flujo OAuth: ${error.message}`, 'error');
+                showResult('oauth-results', false, `Error: ${error.message}`);
+                addTestResult('OAuth Flow', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Inicialización
+        window.onload = function() {
+            log('Página de debug cargada', 'info');
+            updateSystemStatus('Sistema listo para pruebas');
+            
+            // Ejecutar pruebas iniciales automáticamente
+            setTimeout(() => {
+                log('Ejecutando pruebas iniciales automáticas...', 'info');
+                testBackend();
+                setTimeout(() => {
+                    testGoogleConfig();
+                    setTimeout(() => {
+                        testFrontend();
+                        setTimeout(() => {
+                            testEnvironmentVars();
+                        }, 1000);
+                    }, 1000);
+                }, 1000);
+            }, 1000);
+        };
+
+        // Manejar errores globales
+        window.addEventListener('error', function(e) {
+            log(`Error global: ${e.message}`, 'error');
+        });
+
+        // Manejar errores de promesas no manejadas
+        window.addEventListener('unhandledrejection', function(e) {
+            log(`Promesa rechazada no manejada: ${e.reason}`, 'error');
+        });
+    </script>
+</body>
+</html> 

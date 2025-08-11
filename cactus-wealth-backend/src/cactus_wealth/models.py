@@ -509,9 +509,7 @@ class Notification(SQLModel, table=True):
         Index("ix_notifications_user_id", "user_id"),
         Index("ix_notifications_is_read", "is_read"),
         Index("ix_notifications_created_at", "created_at"),
-        Index(
-            "ix_notifications_user_read", "user_id", "is_read"
-        ),  # Composite index for notification queries
+        Index("ix_notifications_user_read", "user_id", "is_read"),
     )
 
 
@@ -592,16 +590,22 @@ class WebAuthnCredential(SQLModel, table=True):
     created_at: datetime = Field(
         default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False)
     )
-    last_used_at: Optional[datetime] = Field(
-        default=None, sa_column=Column(DateTime, nullable=True)
-    )
 
-    # Relationship with user
-    user: "User" = Relationship()
+
+class ManagerChangeRequest(SQLModel, table=True):
+    """Requests from advisors to change their assigned manager."""
+
+    __tablename__ = "manager_change_requests"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    advisor_id: int = Field(foreign_key="users.id")
+    desired_manager_id: int = Field(foreign_key="users.id")
+    status: str = Field(default="PENDING", max_length=20)  # PENDING | APPROVED | REJECTED
+    created_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False))
+    decided_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime, nullable=True))
+    decided_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
 
     __table_args__ = (
-        Index("ix_webauthn_credentials_user_id", "user_id"),
-        Index("ix_webauthn_credentials_credential_id", "credential_id"),
-        Index("ix_webauthn_credentials_created_at", "created_at"),
-        Index("ix_webauthn_credentials_last_used_at", "last_used_at"),
+        Index("ix_manager_change_requests_advisor_id", "advisor_id"),
+        Index("ix_manager_change_requests_status", "status"),
     )

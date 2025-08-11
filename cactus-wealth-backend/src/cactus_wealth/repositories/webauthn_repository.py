@@ -1,98 +1,53 @@
-# file: /Users/prueba/Desktop/CactusDashboard/cactus-wealth-backend/src/cactus_wealth/repositories/webauthn_repository.py
 """
-WebAuthn credential repository for database operations.
+WebAuthn repository for managing WebAuthn credentials.
 """
 
-import json
 from typing import List, Optional
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
 
+from .base_repository import BaseRepository
 from cactus_wealth.models import WebAuthnCredential
-from cactus_wealth.repositories.base_repository import BaseRepository
-from sqlmodel import Session, select
 
 
 class WebAuthnCredentialRepository(BaseRepository[WebAuthnCredential]):
-    """Repository for WebAuthn credential operations."""
-
-    def __init__(self, session: Session):
-        super().__init__(WebAuthnCredential, session)
-
-    async def get_by_credential_id(self, credential_id: str) -> Optional[WebAuthnCredential]:
-        """Get credential by credential_id."""
-        statement = select(WebAuthnCredential).where(
-            WebAuthnCredential.credential_id == credential_id
-        )
-        result = self.session.exec(statement)
-        return result.first()
-
-    async def get_by_user_id(self, user_id: int) -> List[WebAuthnCredential]:
-        """Get all credentials for a user."""
-        statement = select(WebAuthnCredential).where(
-            WebAuthnCredential.user_id == user_id
-        )
-        result = self.session.exec(statement)
-        return list(result.all())
-
-    async def create_credential(
-        self,
-        user_id: int,
-        credential_id: str,
-        public_key: bytes,
-        sign_count: int,
-        transports: Optional[List[str]] = None,
-        aaguid: Optional[str] = None,
-        backup_eligible: bool = False,
-        backup_state: bool = False,
-        device_type: Optional[str] = None,
-    ) -> WebAuthnCredential:
-        """Create a new WebAuthn credential."""
-        transports_json = json.dumps(transports) if transports else None
-        
-        credential = WebAuthnCredential(
-            user_id=user_id,
-            credential_id=credential_id,
-            public_key=public_key,
-            sign_count=sign_count,
-            transports=transports_json,
-            aaguid=aaguid,
-            backup_eligible=backup_eligible,
-            backup_state=backup_state,
-            device_type=device_type,
-        )
-        
-        self.session.add(credential)
-        self.session.commit()
-        self.session.refresh(credential)
-        return credential
-
-    async def update_sign_count(
-        self, credential_id: str, new_sign_count: int
-    ) -> Optional[WebAuthnCredential]:
+    """Repository for WebAuthnCredential model operations."""
+    
+    def __init__(self, db: Session):
+        super().__init__(db, WebAuthnCredential)
+    
+    def get_by_user_id(self, user_id: int) -> List[WebAuthnCredential]:
+        """Get all WebAuthn credentials for a specific user."""
+        return self.db.query(WebAuthnCredential).filter(WebAuthnCredential.user_id == user_id).all()
+    
+    def get_by_credential_id(self, credential_id: str) -> Optional[WebAuthnCredential]:
+        """Get WebAuthn credential by credential ID."""
+        return self.db.query(WebAuthnCredential).filter(WebAuthnCredential.credential_id == credential_id).first()
+    
+    def get_active_credentials(self, user_id: int) -> List[WebAuthnCredential]:
+        """Get all active WebAuthn credentials for a user."""
+        return self.db.query(WebAuthnCredential).filter(
+            and_(
+                WebAuthnCredential.user_id == user_id,
+                WebAuthnCredential.backup_state == False
+            )
+        ).all()
+    
+    def update_sign_count(self, credential_id: str, sign_count: int) -> bool:
         """Update the sign count for a credential."""
-        credential = await self.get_by_credential_id(credential_id)
+        credential = self.get_by_credential_id(credential_id)
         if credential:
-            credential.sign_count = new_sign_count
-            from datetime import datetime
-            credential.last_used_at = datetime.utcnow()
-            self.session.add(credential)
-            self.session.commit()
-            self.session.refresh(credential)
-        return credential
-
-    async def delete_by_credential_id(self, credential_id: str) -> bool:
-        """Delete a credential by credential_id."""
-        credential = await self.get_by_credential_id(credential_id)
-        if credential:
-            self.session.delete(credential)
-            self.session.commit()
+            credential.sign_count = sign_count
+            self.db.commit()
             return True
         return False
-
-    async def delete_by_user_id(self, user_id: int) -> int:
-        """Delete all credentials for a user. Returns count of deleted credentials."""
-        credentials = await self.get_by_user_id(user_id)
-        count = len(credentials)
-        for credential in credentials:
-            self.session.delete(credential)
-        self.session.commit()
-        return count
+    
+    def update_last_used(self, credential_id: str) -> bool:
+        """Update the last used timestamp for a credential."""
+        from datetime import datetime
+        credential = self.get_by_credential_id(credential_id)
+        if credential:
+            credential.last_used_at = datetime.utcnow()
+            self.db.commit()
+            return True
+        return False 

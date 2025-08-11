@@ -9,48 +9,43 @@ const nextConfig = {
     PORT: process.env.PORT || '3000',
   },
   
-  // Experimental features
+  // Experimental features for faster development
   experimental: {
     optimizeCss: true,
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    optimizePackageImports: [
+      'lucide-react',
+      '@radix-ui/react-icons',
+      '@radix-ui/react-accordion',
+      '@radix-ui/react-alert-dialog',
+      '@radix-ui/react-avatar',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-label',
+      '@radix-ui/react-navigation-menu',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-scroll-area',
+      '@radix-ui/react-select',
+      '@radix-ui/react-separator',
+      '@radix-ui/react-slot',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-toast'
+    ],
   },
-  
-  // Webpack configuration to ensure environment variables are included
-  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
-    // Ensure environment variables are available in client bundle
-    if (!isServer) {
-      config.plugins.push(
-        new webpack.DefinePlugin({
-          'process.env.NEXT_PUBLIC_FRONTEND_URL': JSON.stringify(process.env.NEXT_PUBLIC_FRONTEND_URL),
-          'process.env.PORT': JSON.stringify(process.env.PORT || '3000'),
-        })
-      );
-    }
 
-    // Optimize bundle size
-    if (!dev && !isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-          },
-          common: {
-            name: 'common',
-            minChunks: 2,
-            chunks: 'all',
-            enforce: true,
-          },
-        },
-      };
-    } else if (dev && !isServer) {
-      config.optimization.splitChunks = false;
-    }
-
-    return config;
-  },
+  // Development optimizations
+  ...(process.env.NODE_ENV === 'development' && {
+    webpack: (config, { dev, isServer }) => {
+      if (dev && !isServer) {
+        // Faster builds in development
+        config.watchOptions = {
+          poll: 1000,
+          aggregateTimeout: 300,
+        };
+      }
+      return config;
+    },
+  }),
 
   // Image optimization
   images: {
@@ -75,7 +70,6 @@ const nextConfig = {
             key: 'X-Frame-Options',
             value: 'DENY',
           },
-          // Removed X-XSS-Protection to avoid TrustedHTML conflicts
         ],
       },
       {
@@ -86,17 +80,6 @@ const nextConfig = {
             value: 'public, max-age=300, s-maxage=300',
           },
         ],
-      },
-    ];
-  },
-
-  // API proxy to backend - flexible backend URL
-  async rewrites() {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    return [
-      {
-        source: '/api/v1/:path*',
-        destination: `${backendUrl}/api/v1/:path*`,
       },
     ];
   },

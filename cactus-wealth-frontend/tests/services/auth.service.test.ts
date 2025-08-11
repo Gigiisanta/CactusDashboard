@@ -1,21 +1,23 @@
+import { vi } from 'vitest';
 import { AuthService } from '@/services/auth.service';
 import { UserRole } from '@/types';
 
-// Mock the API client
-jest.mock('../../lib/api', () => ({
+// Mock the API client (Vitest)
+vi.mock('../../lib/api', () => ({
   apiClient: {
-    login: jest.fn(),
-    register: jest.fn(),
+    login: vi.fn(),
+    register: vi.fn(),
   },
 }));
 
 import { apiClient } from '@/lib/api';
 
-const mockApiClient = apiClient as jest.Mocked<typeof apiClient>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockApiClient = apiClient as any;
 
 describe('AuthService', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('login', () => {

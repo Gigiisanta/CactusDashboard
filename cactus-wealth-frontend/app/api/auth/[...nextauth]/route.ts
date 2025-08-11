@@ -15,6 +15,7 @@ const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true, // Soluciona el error UntrustedHost en Docker
   session: {
     strategy: "jwt",
   },

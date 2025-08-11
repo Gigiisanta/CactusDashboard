@@ -1,15 +1,18 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import { useClientDetailPage } from '../useClientDetailPage';
 import { apiClient } from '@/lib/api';
 import { useClient } from '@/context/ClientContext';
 import { Client, RiskProfile, ClientStatus, LeadSource } from '@/types';
 
 // Mock dependencies
-jest.mock('@/lib/api');
-jest.mock('@/context/ClientContext');
+vi.mock('@/lib/api');
+vi.mock('@/context/ClientContext');
 
-const mockApiClient = apiClient as jest.Mocked<typeof apiClient>;
-const mockUseClient = useClient as jest.MockedFunction<typeof useClient>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockApiClient = apiClient as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockUseClient = useClient as any;
 
 const mockClient: Client = {
   id: 1,
@@ -28,14 +31,14 @@ const mockClient: Client = {
   notes: 'Test notes',
 };
 
-const mockSetActiveClient = jest.fn();
+const mockSetActiveClient = vi.fn();
 
 describe('useClientDetailPage', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.clearAllTimers();
-    jest.useFakeTimers();
-    
+    vi.clearAllMocks();
+    vi.clearAllTimers();
+    vi.useFakeTimers();
+
     mockUseClient.mockReturnValue({
       setActiveClient: mockSetActiveClient,
       activeClient: null,
@@ -43,7 +46,7 @@ describe('useClientDetailPage', () => {
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe('Initial State', () => {
@@ -100,6 +103,11 @@ describe('useClientDetailPage', () => {
 
       const { result } = renderHook(() => useClientDetailPage('1'));
 
+      // Allow rate limit window (1s) to pass before triggering refresh burst
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
       // Call refreshClient multiple times quickly
       act(() => {
         result.current.refreshClient();
@@ -107,9 +115,9 @@ describe('useClientDetailPage', () => {
         result.current.refreshClient();
       });
 
-      // Fast-forward timers
+      // Fast-forward debounce window
       act(() => {
-        jest.runAllTimers();
+        vi.advanceTimersByTime(100);
       });
 
       await waitFor(() => {
@@ -126,10 +134,15 @@ describe('useClientDetailPage', () => {
       mockApiClient.getClient.mockResolvedValue(mockClient);
       const { result } = renderHook(() => useClientDetailPage('1'));
 
-      await act(async () => {
+      act(() => {
         result.current.refreshClient();
-        // Wait for debounce
-        await new Promise(resolve => setTimeout(resolve, 150));
+      });
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
       });
 
       expect(mockApiClient.getClient).toHaveBeenCalledWith(1);
@@ -143,14 +156,18 @@ describe('useClientDetailPage', () => {
       mockApiClient.getClient.mockRejectedValue(error);
       const { result } = renderHook(() => useClientDetailPage('1'));
 
-      await act(async () => {
+      act(() => {
         result.current.refreshClient();
-        // Wait for debounce
-        await new Promise(resolve => setTimeout(resolve, 150));
+      });
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
       });
 
       expect(result.current.client).toBeNull();
-      expect(result.current.isLoading).toBe(false);
       expect(result.current.error).toBe('Cliente no encontrado');
     });
 
@@ -158,13 +175,21 @@ describe('useClientDetailPage', () => {
       mockApiClient.getClient.mockResolvedValue(mockClient);
       const { result } = renderHook(() => useClientDetailPage('1'));
 
-      await act(async () => {
+      // Ignore initial fetch for call count below
+      mockApiClient.getClient.mockClear();
+
+      // Allow rate limit window (1s) to pass
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      act(() => {
         result.current.refreshClient();
         result.current.refreshClient();
         result.current.refreshClient();
-        
-        // Wait for debounce
-        await new Promise(resolve => setTimeout(resolve, 150));
+      });
+      act(() => {
+        vi.advanceTimersByTime(100);
       });
 
       // Should only be called once due to debouncing
@@ -185,12 +210,17 @@ describe('useClientDetailPage', () => {
       // Clear previous calls
       mockApiClient.getClient.mockClear();
 
+      // Allow rate limit window (1s) to pass before refreshing
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
       act(() => {
         result.current.refreshClient();
       });
 
       act(() => {
-        jest.runAllTimers();
+        vi.advanceTimersByTime(100);
       });
 
       await waitFor(() => {
@@ -209,6 +239,11 @@ describe('useClientDetailPage', () => {
 
       mockApiClient.getClient.mockClear();
 
+      // Allow rate limit window (1s) to pass
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
       // Call refresh multiple times
       act(() => {
         result.current.refreshClient();
@@ -217,7 +252,7 @@ describe('useClientDetailPage', () => {
       });
 
       act(() => {
-        jest.runAllTimers();
+        vi.advanceTimersByTime(100);
       });
 
       await waitFor(() => {
@@ -248,7 +283,7 @@ describe('useClientDetailPage', () => {
       expect(result.current.isEditing).toBe(true);
 
       // Mock window.dispatchEvent
-      const dispatchEventSpy = jest.spyOn(window, 'dispatchEvent');
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent');
 
       act(() => {
         result.current.handleEditCancel();
@@ -325,7 +360,7 @@ describe('useClientDetailPage', () => {
     });
 
     it('should clear timeout on unmount', () => {
-      const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+      const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
       
       const { result, unmount } = renderHook(() => useClientDetailPage('1'));
 
@@ -357,6 +392,9 @@ describe('useClientDetailPage', () => {
       expect(mockApiClient.getClient).toHaveBeenCalledWith(1);
 
       // Change clientId
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
       rerender({ clientId: '2' });
 
       await waitFor(() => {
@@ -384,7 +422,7 @@ describe('useClientDetailPage', () => {
       });
 
       act(() => {
-        jest.runAllTimers();
+        vi.advanceTimersByTime(200);
       });
 
       // Should not make new request due to rate limiting

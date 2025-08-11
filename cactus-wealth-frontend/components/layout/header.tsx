@@ -3,7 +3,8 @@
 import { useSession, signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
-import { LiveNotifications } from '@/components/realtime/LiveNotifications';
+import dynamic from 'next/dynamic';
+const LiveNotifications = dynamic(() => import('@/components/realtime/LiveNotifications').then(m => m.LiveNotifications), { ssr: false });
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useEffect, useRef, useState } from 'react';
 import { AuthService } from '@/services/auth.service';
@@ -51,7 +52,9 @@ export function Header() {
     try {
       disconnect();
       setJwtToken(null);
-      await signOut({ callbackUrl: '/login' });
+      // Clear HTTPOnly cookie for traditional auth
+      await fetch('/api/auth/session/clear', { method: 'POST' });
+      await signOut({ callbackUrl: '/auth/login' });
     } catch (error) {
       console.error('Logout error:', error);
     }

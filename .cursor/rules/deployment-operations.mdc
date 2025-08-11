@@ -1,0 +1,187 @@
+# Despliegue y Operaciones - CactusDashboard
+
+## 🚀 **Despliegue en AWS**
+
+### Arquitectura de Producción
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   CloudFront    │◄──►│   ALB (Nginx)    │◄──►│   EC2 Instances │
+│   (CDN)         │    │   (Load Balancer)│    │   (App Servers) │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Route 53      │    │   RDS            │    │   ElastiCache   │
+│   (DNS)         │    │   (PostgreSQL)   │    │   (Redis)       │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+### Configuración Actual (Producción)
+- **Instancia**: i-0913b3f472d7001ef
+- **IP**: 34.195.179.168
+- **Tipo**: t4g.small (Free Tier hasta 31-dic-2025)
+- **Auto-downgrade**: t4g.micro (01-ene-2026 00:15 UTC)
+- **Región**: us-east-1
+- **Presupuesto**: $75 USD/mes
+
+## 🔧 **Comandos de Despliegue**
+
+### Validación
+```bash
+# Validar configuración
+task validate:aws
+
+# Validar Terraform
+cd terraform && terraform validate
+```
+
+### Despliegue
+```bash
+# Desplegar completo
+task deploy:aws
+
+# Solo planificar cambios
+cd terraform && terraform plan
+```
+
+### Monitoreo
+```bash
+# Estado de la instancia
+aws ec2 describe-instances --instance-ids i-0913b3f472d7001ef
+
+# Logs de CloudWatch
+aws logs describe-log-groups --log-group-name-prefix cactus-dashboard
+```
+
+## 📊 **Monitoreo y Alertas**
+
+### CloudWatch Alarms
+- **CPU Utilization**: >80% por 2 períodos de 5 minutos
+- **Dashboard Latency**: >2000ms response time
+- **Memory Usage**: Monitoreado via CloudWatch Agent
+
+### Budget Alerts
+- **Threshold**: 95% de $75/mes ($71.25)
+- **Action**: Stop EC2 instance via Lambda
+- **Notification**: Email a giolivosantarelli@gmail.com
+
+### Auto-Downgrade
+- **Fecha**: 2026-01-01 00:15 UTC
+- **Proceso**: EventBridge → SSM Automation → t4g.micro
+
+## 🔄 **Flujo de Eventos**
+
+### Budget Exceeded Flow
+```
+95% Budget → SNS → Lambda → Stop EC2 → Email Alert
+```
+
+### Auto-Downgrade Flow
+```
+2026-01-01 00:15 UTC → EventBridge → SSM → t4g.micro
+```
+
+### Health Check Flow
+```
+CloudWatch → CPU/Memory → Alarm → SNS → Email
+```
+
+## 🛠️ **Troubleshooting**
+
+### Instance Issues
+```bash
+# Verificar estado
+aws ec2 describe-instances --instance-ids i-0913b3f472d7001ef
+
+# Reiniciar si es necesario
+aws ec2 reboot-instances --instance-ids i-0913b3f472d7001ef
+
+# SSH para debugging
+ssh -i cactus-key.pem ubuntu@34.195.179.168
+```
+
+### Application Issues
+```bash
+# SSH al servidor
+ssh -i cactus-key.pem ubuntu@34.195.179.168
+
+# Verificar Docker
+docker-compose -f docker-compose.prod.yml ps
+
+# Ver logs
+docker-compose -f docker-compose.prod.yml logs -f
+
+# Reiniciar servicios
+docker-compose -f docker-compose.prod.yml restart
+```
+
+### Budget Issues
+```bash
+# Verificar presupuesto
+aws budgets describe-budget --account-id 644439356858 --budget-name cactus-dashboard-monthly-budget
+
+# Ver costos actuales
+aws ce get-cost-and-usage --time-period Start=2024-01-01,End=2024-01-31 --granularity MONTHLY --metrics BlendedCost
+```
+
+## 📋 **Checklist de Despliegue**
+
+### Pre-Despliegue
+- [ ] Validar configuración con `task validate:aws`
+- [ ] Verificar variables en `terraform.tfvars`
+- [ ] Confirmar presupuesto disponible
+- [ ] Revisar cambios en `terraform plan`
+
+### Durante Despliegue
+- [ ] Monitorear progreso de Terraform
+- [ ] Verificar creación de recursos
+- [ ] Confirmar configuración de alarmas
+- [ ] Validar conectividad SSH
+
+### Post-Despliegue
+- [ ] Verificar aplicación funcionando
+- [ ] Testear endpoints críticos
+- [ ] Confirmar alertas configuradas
+- [ ] Documentar cambios en logs
+
+## 🔒 **Seguridad**
+
+### Network Security
+- **SSH**: Restringido a IP específica (186.127.184.104/32)
+- **Firewall**: UFW configurado
+- **Security Groups**: Puertos mínimos abiertos
+- **IMDS**: v2 habilitado
+
+### Data Security
+- **EBS**: Encriptado
+- **Backups**: Automáticos diarios
+- **Secrets**: Variables de entorno
+- **SSL**: Configurado para producción
+
+## 📈 **Optimización de Costos**
+
+### Free Tier Usage
+- **t4g.small**: Free Tier hasta 31-dic-2025
+- **EBS**: 30GB gp3 (dentro de límites)
+- **Data Transfer**: Minimizado
+- **IPv6**: Deshabilitado para reducir costos
+
+### Auto-Optimization
+- **Auto-downgrade**: t4g.micro después del trial
+- **Budget alerts**: Prevenir overspending
+- **Resource cleanup**: Automático
+- **Cost monitoring**: CloudWatch + Budgets
+
+## 📚 **Documentación de Referencia**
+
+### Archivos Clave
+- [terraform/main.tf](mdc:terraform/main.tf) - Infraestructura principal
+- [terraform/terraform.tfvars](mdc:terraform/terraform.tfvars) - Variables
+- [MONITORING-RUNBOOK.md](mdc:MONITORING-RUNBOOK.md) - Procedimientos operacionales
+- [logs/deployment-success.log](mdc:logs/deployment-success.log) - Log de despliegue
+
+### URLs de Producción
+- **Frontend**: http://34.195.179.168:3000
+- **Backend**: http://34.195.179.168:8000
+- **API Docs**: http://34.195.179.168:8000/docs
+- **Health Check**: http://34.195.179.168:8000/health

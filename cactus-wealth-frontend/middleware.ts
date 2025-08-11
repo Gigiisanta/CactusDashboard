@@ -6,14 +6,22 @@ export async function middleware(request: NextRequest) {
     req: request,
     secret: process.env.NEXTAUTH_SECRET 
   });
+
+  // Fallback: allow access when custom access_token cookie is present
+  const accessTokenCookie = request.cookies.get('access_token')?.value;
   
   // Si no hay token y está intentando acceder a una ruta protegida
-  if (!token && request.nextUrl.pathname.startsWith('/dashboard')) {
+  const protectedPrefixes = ['/dashboard', '/clients', '/admin', '/reports'];
+  if (
+    !token &&
+    !accessTokenCookie &&
+    protectedPrefixes.some((p) => request.nextUrl.pathname.startsWith(p))
+  ) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
   
-  // Si hay token y está intentando acceder al login, redirigir al dashboard
-  if (token && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/auth/login')) {
+  // Si hay token (NextAuth) o cookie propia y está intentando acceder al login, redirigir al dashboard
+  if ((token || accessTokenCookie) && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/auth/login')) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
@@ -21,5 +29,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/clients/:path*', '/reports/:path*', '/login', '/auth/login'],
+  matcher: [
+    '/dashboard/:path*',
+    '/clients/:path*',
+    '/admin/:path*',
+    '/reports/:path*',
+    '/login',
+    '/auth/login',
+  ],
 };

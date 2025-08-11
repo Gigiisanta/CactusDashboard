@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 
 interface TestResult {
@@ -15,7 +15,7 @@ export default function DebugPage() {
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const { data: session, status } = useSession();
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
   const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
 
   const log = (message: string, type: 'info' | 'error' | 'warning' = 'info') => {
@@ -29,7 +29,7 @@ export default function DebugPage() {
     setTestResults(prev => [...prev, { name, success, message, data }]);
   };
 
-  const testBackend = async () => {
+  const testBackend = useCallback(async () => {
     log('Probando conectividad del backend...');
     try {
       const response = await fetch(`${BACKEND_URL}/health`);
@@ -46,9 +46,9 @@ export default function DebugPage() {
       log(`Error de conexión al backend: ${error.message}`, 'error');
       addTestResult('Backend Connectivity', false, `Error de red: ${error.message}`);
     }
-  };
+  }, [BACKEND_URL, log, addTestResult]);
 
-  const testNextAuth = () => {
+  const testNextAuth = useCallback(() => {
     log('Verificando configuración de NextAuth...');
     
     // Verificar variables de entorno de NextAuth
@@ -71,7 +71,7 @@ export default function DebugPage() {
     }
     
     log(`NextAuth test: ${status === 'authenticated' ? 'EXITOSO' : 'PENDIENTE'}`);
-  };
+  }, [session, status, log, addTestResult]);
 
   const testGoogleSignIn = async () => {
     log('Probando inicio de sesión con Google...');
@@ -83,11 +83,12 @@ export default function DebugPage() {
     }
   };
 
-  const testEnvironmentVars = () => {
+  const testEnvironmentVars = useCallback(() => {
     log('Verificando variables de entorno...');
     
     const envVars = {
-      NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'NO_CONFIGURADO',
+          NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'NO_CONFIGURADO',
+          NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'NO_CONFIGURADO',
       NEXT_PUBLIC_FRONTEND_URL: process.env.NEXT_PUBLIC_FRONTEND_URL || 'NO_CONFIGURADO',
       NODE_ENV: process.env.NODE_ENV || 'NO_CONFIGURADO'
     };
@@ -97,11 +98,11 @@ export default function DebugPage() {
     addTestResult('Environment Variables', allConfigured, 
       allConfigured ? 'Todas las variables configuradas' : 'Algunas variables faltan', envVars);
     log(`Variables de entorno: ${allConfigured ? 'CONFIGURADAS' : 'INCOMPLETAS'}`);
-  };
+  }, [log, addTestResult]);
 
 
 
-  const runAllTests = async () => {
+  const runAllTests = useCallback(async () => {
     setLogs([]);
     setTestResults([]);
     log('Ejecutando todas las pruebas...');
@@ -113,12 +114,12 @@ export default function DebugPage() {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     testEnvironmentVars();
-  };
+  }, []);
 
   useEffect(() => {
     log('Página de debug cargada');
     runAllTests();
-  }, [status]);
+  }, [status, runAllTests]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
