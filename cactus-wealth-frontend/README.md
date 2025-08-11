@@ -59,7 +59,7 @@ The application uses JWT token authentication. Demo credentials:
 
 ## 📁 Project Structure
 
-```
+```text
 cactus-wealth-frontend/
 ├── app/                    # Next.js App Router pages
 │   ├── dashboard/          # Protected dashboard routes
@@ -124,9 +124,31 @@ The frontend integrates with the following backend endpoints:
 - Legacy Jest (temporal, fallback):
   - `npm run test:legacy`
 
-Task runner (project root):
-- `task test:frontend` – Vitest CI for frontend
-- `task test:all` – Backend pytest + Frontend Vitest, y Jest legado opcional
+Guidelines for async hooks with debounce/timers:
+
+- Use fake timers and advance to the exact debounce window (e.g., 100ms)
+- Await async updates with `waitFor` prior to asserting hook state
+- For rate‑limited flows, advance timers to pass the window (e.g., 1000ms)
+
+Example:
+
+```ts
+import { renderHook, act, waitFor } from '@testing-library/react'
+import { vi } from 'vitest'
+
+vi.useFakeTimers()
+const { result } = renderHook(() => useHook())
+
+act(() => result.current.refresh())
+act(() => vi.advanceTimersByTime(100))
+
+await waitFor(() => expect(result.current.loading).toBe(false))
+```
+
+Promise rejections:
+
+- Always assert with `await expect(promise).rejects.toThrow(...)`
+- Avoid unawaited rejections to prevent CI noise
 
 ### Key Features Implementation
 
@@ -160,7 +182,8 @@ Task runner (project root):
    ```
 
 2. **Start the production server**:
-   ```bash
+
+```bash
    npm start
    ```
 

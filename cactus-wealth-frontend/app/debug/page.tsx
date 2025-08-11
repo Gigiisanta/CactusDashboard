@@ -18,16 +18,16 @@ export default function DebugPage() {
   const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
   const FRONTEND_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
 
-  const log = (message: string, type: 'info' | 'error' | 'warning' = 'info') => {
+  const log = useCallback((message: string, type: 'info' | 'error' | 'warning' = 'info') => {
     const timestamp = new Date().toLocaleTimeString();
     const logMessage = `[${timestamp}] ${message}`;
     setLogs(prev => [...prev, logMessage]);
     console.log(logMessage);
-  };
+  }, []);
 
-  const addTestResult = (name: string, success: boolean, message: string, data?: any) => {
+  const addTestResult = useCallback((name: string, success: boolean, message: string, data?: any) => {
     setTestResults(prev => [...prev, { name, success, message, data }]);
-  };
+  }, []);
 
   const testBackend = useCallback(async () => {
     log('Probando conectividad del backend...');
@@ -114,12 +114,12 @@ export default function DebugPage() {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     testEnvironmentVars();
-  }, []);
+  }, [log, testBackend, testNextAuth, testEnvironmentVars]);
 
   useEffect(() => {
     log('Página de debug cargada');
     runAllTests();
-  }, [status, runAllTests]);
+  }, [status, runAllTests, log]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

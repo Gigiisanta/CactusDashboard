@@ -1,6 +1,8 @@
 import { vi } from 'vitest';
 import { DashboardService } from '@/services/dashboard.service';
 import { apiClient } from '@/lib/api';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockApiClient = apiClient as any;
 
 // Mock the API client (Vitest)
 vi.mock('@/lib/api', () => ({
@@ -31,17 +33,17 @@ describe('DashboardService', () => {
           },
         ],
       };
-      apiClient.getDashboardSummary.mockResolvedValue(mockSummary);
+      mockApiClient.getDashboardSummary.mockResolvedValue(mockSummary);
 
       const result = await DashboardService.getDashboardSummary();
 
-      expect(apiClient.getDashboardSummary).toHaveBeenCalled();
+      expect(mockApiClient.getDashboardSummary).toHaveBeenCalled();
       expect(result).toEqual(mockSummary);
     });
 
     it('should handle API errors gracefully', async () => {
       const error = new Error('API Error');
-      apiClient.getDashboardSummary.mockRejectedValue(error);
+      mockApiClient.getDashboardSummary.mockRejectedValue(error);
 
       await expect(DashboardService.getDashboardSummary()).rejects.toThrow(
         'API Error'
@@ -55,11 +57,11 @@ describe('DashboardService', () => {
         { date: '2023-01-01', value: 5000000 },
         { date: '2023-01-02', value: 5100000 },
       ];
-      apiClient.getAumHistory.mockResolvedValue(mockHistory);
+      mockApiClient.getAumHistory.mockResolvedValue(mockHistory);
 
       const result = await DashboardService.getAumHistory();
 
-      expect(apiClient.getAumHistory).toHaveBeenCalledWith(30);
+      expect(mockApiClient.getAumHistory).toHaveBeenCalledWith(30);
       expect(result).toEqual(mockHistory);
     });
 
@@ -68,17 +70,17 @@ describe('DashboardService', () => {
         { date: '2023-01-01', value: 5000000 },
         { date: '2023-01-02', value: 5100000 },
       ];
-      apiClient.getAumHistory.mockResolvedValue(mockHistory);
+      mockApiClient.getAumHistory.mockResolvedValue(mockHistory);
 
       const result = await DashboardService.getAumHistory(7);
 
-      expect(apiClient.getAumHistory).toHaveBeenCalledWith(7);
+      expect(mockApiClient.getAumHistory).toHaveBeenCalledWith(7);
       expect(result).toEqual(mockHistory);
     });
 
     it('should handle API errors gracefully', async () => {
       const error = new Error('API Error');
-      apiClient.getAumHistory.mockRejectedValue(error);
+      mockApiClient.getAumHistory.mockRejectedValue(error);
 
       await expect(DashboardService.getAumHistory()).rejects.toThrow(
         'API Error'
@@ -87,21 +89,21 @@ describe('DashboardService', () => {
 
     it('should handle empty history data', async () => {
       const mockHistory: Array<{ date: string; value: number }> = [];
-      apiClient.getAumHistory.mockResolvedValue(mockHistory);
+      mockApiClient.getAumHistory.mockResolvedValue(mockHistory);
 
       const result = await DashboardService.getAumHistory();
 
-      expect(apiClient.getAumHistory).toHaveBeenCalledWith(30);
+      expect(mockApiClient.getAumHistory).toHaveBeenCalledWith(30);
       expect(result).toEqual([]);
     });
 
     it('should handle single day history', async () => {
       const mockHistory = [{ date: '2023-01-01', value: 5000000 }];
-      apiClient.getAumHistory.mockResolvedValue(mockHistory);
+      mockApiClient.getAumHistory.mockResolvedValue(mockHistory);
 
       const result = await DashboardService.getAumHistory(1);
 
-      expect(apiClient.getAumHistory).toHaveBeenCalledWith(1);
+      expect(mockApiClient.getAumHistory).toHaveBeenCalledWith(1);
       expect(result).toEqual(mockHistory);
     });
 
@@ -110,11 +112,11 @@ describe('DashboardService', () => {
         { date: '2022-01-01', value: 4000000 },
         { date: '2023-01-01', value: 5000000 },
       ];
-      apiClient.getAumHistory.mockResolvedValue(mockHistory);
+      mockApiClient.getAumHistory.mockResolvedValue(mockHistory);
 
       const result = await DashboardService.getAumHistory(365);
 
-      expect(apiClient.getAumHistory).toHaveBeenCalledWith(365);
+      expect(mockApiClient.getAumHistory).toHaveBeenCalledWith(365);
       expect(result).toEqual(mockHistory);
     });
   });
