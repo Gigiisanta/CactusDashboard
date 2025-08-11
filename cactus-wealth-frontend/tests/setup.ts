@@ -206,11 +206,17 @@ function shouldSilenceConsole(args: unknown[]): boolean {
 
 console.error = (...args: unknown[]) => {
   if (shouldSilenceConsole(args)) return
+  if (process.env.CI_STRICT_LOGS === '1') {
+    throw new Error(`Unexpected console.error in tests: ${args.map(String).join(' ')}`)
+  }
   return originalConsoleError(...args)
 }
 
 console.warn = (...args: unknown[]) => {
   if (shouldSilenceConsole(args)) return
+  if (process.env.CI_STRICT_LOGS === '1') {
+    throw new Error(`Unexpected console.warn in tests: ${args.map(String).join(' ')}`)
+  }
   return originalConsoleWarn(...args)
 }
 
