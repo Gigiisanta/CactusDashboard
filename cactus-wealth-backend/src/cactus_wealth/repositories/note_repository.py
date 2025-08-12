@@ -11,3 +11,7 @@ class NoteRepository(BaseRepository[ClientNote]):
     def get_by_client_id(self, client_id: int) -> list[ClientNote]:
         statement = select(ClientNote).where(ClientNote.client_id == client_id)
         return list(self.session.exec(statement).all())
+
+    # Convenience wrappers for BaseRepository semantics expected in endpoints
+    def get_by_id(self, note_id: int) -> ClientNote | None:  # type: ignore[override]
+        return super().get_by_id(note_id)

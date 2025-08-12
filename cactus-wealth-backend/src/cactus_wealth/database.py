@@ -57,4 +57,5 @@ def get_session() -> Generator[Session, None, None]:
 
 def get_db() -> Generator[Session, None, None]:
     """Alias for get_session for compatibility."""
-    return get_session()
+    # Important: yield from to keep FastAPI dependency lifecycle semantics
+    yield from get_session()

@@ -39,18 +39,26 @@ class AssetType(str, enum.Enum):
 
 
 class ClientStatus(str, enum.Enum):
-    """Client status in the sales pipeline."""
+    """Client status in the sales pipeline.
 
-    prospect = "prospect"  # Prospecto
-    contacted = "contacted"  # Contactado
-    first_meeting = "first_meeting"  # Primera Reunión
-    second_meeting = "second_meeting"  # Segunda Reunión
-    opening = "opening"  # Apertura
-    onboarding = "onboarding"  # Proceso de Onboarding
-    reschedule = "reschedule"  # Reagendar
-    active_investor = "active_investor"  # Cliente Activo - Invirtiendo
-    active_insured = "active_insured"  # Cliente Activo - Asegurado
-    dormant = "dormant"  # Inactivo
+    Provide both lowercase and uppercase aliases for compatibility with tests.
+    """
+
+    # Canonical lowercase values (used in DB)
+    prospect = "prospect"
+    contacted = "contacted"
+    first_meeting = "first_meeting"
+    second_meeting = "second_meeting"
+    opening = "opening"
+    onboarding = "onboarding"
+    reschedule = "reschedule"
+    active_investor = "active_investor"
+    active_insured = "active_insured"
+    dormant = "dormant"
+
+    # Uppercase aliases for test compatibility
+    ACTIVE = "active_investor"
+    PROSPECT = "prospect"
 
 
 class LeadSource(str, enum.Enum):
@@ -163,6 +171,7 @@ class Client(SQLModel, table=True):
     email: str = Field(unique=True, max_length=255)
     phone: str | None = Field(default=None, max_length=20)
     risk_profile: RiskProfile = Field(
+        default=RiskProfile.MEDIUM,
         sa_column=Column(Enum(RiskProfile), nullable=False)
     )
 
@@ -194,9 +203,13 @@ class Client(SQLModel, table=True):
 
     # Relationships
     investment_accounts: list["InvestmentAccount"] = Relationship(
-        back_populates="client"
+        back_populates="client",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
-    insurance_policies: list["InsurancePolicy"] = Relationship(back_populates="client")
+    insurance_policies: list["InsurancePolicy"] = Relationship(
+        back_populates="client",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
     portfolios: list["Portfolio"] = Relationship(back_populates="client")
     activities: list["ClientActivity"] = Relationship(back_populates="client")
     notes_list: list["ClientNote"] = Relationship(back_populates="client")

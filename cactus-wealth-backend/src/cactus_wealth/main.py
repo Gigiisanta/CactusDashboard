@@ -51,4 +51,9 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "cactus-wealth-backend"}
+    from datetime import datetime
+    return {
+        "status": "healthy",
+        "service": "cactus-wealth-backend",
+        "timestamp": datetime.utcnow().isoformat(),
+    }

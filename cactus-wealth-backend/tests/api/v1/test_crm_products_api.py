@@ -18,8 +18,14 @@ if TYPE_CHECKING:
 
 @pytest.fixture(autouse=True)
 def cleanup_users(session):
-    session.execute(sqlalchemy.text('TRUNCATE TABLE users RESTART IDENTITY CASCADE'))
-    session.commit()
+    """Cleanup users table in a DB-agnostic way (SQLite-friendly)."""
+    engine = session.get_bind()
+    if engine.dialect.name == "sqlite":
+        session.execute(sqlalchemy.text("DELETE FROM users"))
+        session.commit()
+    else:
+        session.execute(sqlalchemy.text('TRUNCATE TABLE users RESTART IDENTITY CASCADE'))
+        session.commit()
 
 
 @pytest.fixture

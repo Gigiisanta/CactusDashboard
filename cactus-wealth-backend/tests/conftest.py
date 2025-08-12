@@ -13,6 +13,9 @@ import pytest
 import pytest_asyncio
 import sqlalchemy
 from fastapi import FastAPI
+import asyncio
+import inspect as _inspect
+from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from sqlalchemy_utils import create_database, database_exists, drop_database
 from sqlmodel import Session, SQLModel, create_engine
@@ -227,11 +230,36 @@ def app() -> FastAPI:
     return main_app
 
 
-@pytest_asyncio.fixture
-async def client(app: FastAPI) -> AsyncClient:
-    """Async HTTP client for tests using httpx.AsyncClient."""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
-        yield ac
+@pytest.fixture
+def client(app: FastAPI, request: pytest.FixtureRequest):
+    """Client fixture compatible with both sync and async tests.
+
+    - For async tests (coroutines), returns an httpx.AsyncClient bound to the ASGI app.
+    - For sync tests, returns FastAPI's TestClient.
+    """
+    if _inspect.iscoroutinefunction(getattr(request, "function", None)):
+        ac = AsyncClient(app=app, base_url="http://test")
+        try:
+            yield ac
+        finally:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(ac.aclose())
+                else:
+                    loop.run_until_complete(ac.aclose())
+            except RuntimeError:
+                asyncio.run(ac.aclose())
+        return
+    # Sync path: manage context explicitly
+    with TestClient(app) as tc:
+        yield tc
+
+@pytest.fixture
+def test_client(app: FastAPI) -> TestClient:
+    """Alias fixture explicitly named as test_client for integration tests."""
+    with TestClient(app) as c:
+        yield c
 
 
 @pytest.fixture
@@ -307,6 +335,17 @@ def authenticated_headers(test_user):
 
     token = create_access_token(data={"sub": test_user.email})
     return {"Authorization": f"Bearer {token}"}
+
+
+# Compatibility alias fixtures for test suites expecting specific names
+@pytest.fixture
+def db_session(session):
+    return session
+
+
+@pytest.fixture
+def auth_headers(authenticated_headers):
+    return authenticated_headers
 
 
 @pytest.fixture(autouse=True, scope="function")

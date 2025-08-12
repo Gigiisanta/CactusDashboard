@@ -183,6 +183,13 @@ class ClientRepository(BaseRepository[Client]):
         """
         return self.session.get(InsurancePolicy, policy_id)
 
+    def delete(self, entity: Client) -> Client:
+        """Override delete to ensure cascade removes related entities safely."""
+        # Ensure related products are loaded so ORM handles cascade properly
+        _ = entity.investment_accounts  # trigger load
+        _ = entity.insurance_policies
+        return super().delete(entity)
+
     def count_clients_by_advisor(self, advisor_id: int) -> int:
         """
         Count total clients for a specific advisor.
@@ -198,7 +205,10 @@ class ClientRepository(BaseRepository[Client]):
             Client.status == ClientStatus.ACTIVE
         )
         result = self.session.exec(statement).first()
-        return result or 0
+        # SQLModel returns tuples sometimes; handle both tuple and scalar
+        if isinstance(result, tuple):
+            return int(result[0] or 0)
+        return int(result or 0)
 
     def count_prospects_by_advisor(self, advisor_id: int) -> int:
         """
@@ -215,7 +225,9 @@ class ClientRepository(BaseRepository[Client]):
             Client.status == ClientStatus.PROSPECT
         )
         result = self.session.exec(statement).first()
-        return result or 0
+        if isinstance(result, tuple):
+            return int(result[0] or 0)
+        return int(result or 0)
 
     def sum_aum_by_advisor(self, advisor_id: int) -> float:
         """
@@ -228,7 +240,7 @@ class ClientRepository(BaseRepository[Client]):
             Total AUM amount
         """
         statement = (
-            select(func.sum(InvestmentAccount.balance))
+            select(func.sum(InvestmentAccount.aum))
             .join(Client, InvestmentAccount.client_id == Client.id)
             .where(Client.owner_id == advisor_id)
         )

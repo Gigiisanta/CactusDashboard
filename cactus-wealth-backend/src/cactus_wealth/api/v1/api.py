@@ -6,6 +6,8 @@ from cactus_wealth.api.v1.endpoints import (
     clients,
     dashboard,
     health,
+    login,
+    passkeys,
     insurance_policies,
     investment_accounts,
     model_portfolios,
@@ -31,6 +33,8 @@ api_router.include_router(
 )
 api_router.include_router(assets.router, prefix="/assets", tags=["assets"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+api_router.include_router(login.router, prefix="/login", tags=["auth"])
+api_router.include_router(passkeys.router, prefix="/auth/passkeys", tags=["auth-passkeys"])
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(investment_accounts.router, tags=["investment-accounts"])
 api_router.include_router(insurance_policies.router, tags=["insurance-policies"])

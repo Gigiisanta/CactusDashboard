@@ -75,4 +75,7 @@ def remove_client(session: Session, client_id: int, owner_id: int) -> object:
         return None
 
     # Delete the client (cascade will handle related records)
-    return client_repo.delete(client_id)
+    client = client_repo.get_by_id(client_id)
+    if client is None:
+        return None
+    return client_repo.delete(client)

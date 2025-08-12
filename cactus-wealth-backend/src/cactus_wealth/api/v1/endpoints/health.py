@@ -10,9 +10,11 @@ router = APIRouter()
 @router.get("/health")
 async def health_check():
     """Health check endpoint."""
+    from datetime import datetime
     return {
         "status": "healthy",
-        "message": "Cactus Wealth API is running"
+        "message": "Cactus Wealth API is running",
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 

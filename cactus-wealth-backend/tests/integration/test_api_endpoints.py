@@ -26,7 +26,7 @@ def client_and_token(session, test_client):
         password="integrationpass",
         role=UserRole.JUNIOR_ADVISOR,
     )
-    user = create_user(session=session, user_create=user_data)
+    user = create_user(session=session, user_data=user_data)
 
     # Crear cliente real
     client_data = ClientCreate(
@@ -35,7 +35,7 @@ def client_and_token(session, test_client):
         email="integration.client@test.com",
         risk_profile=RiskProfile.MEDIUM,
     )
-    client = create_client(session=session, client=client_data, owner_id=user.id)
+    client = create_client(session=session, client_data=client_data, owner_id=user.id)
 
     # Generar JWT válido
     token = create_access_token(data={"sub": user.email})
@@ -45,9 +45,24 @@ def client_and_token(session, test_client):
 
 @pytest.fixture(autouse=True)
 def cleanup_db(session):
-    session.execute(sqlalchemy.text('TRUNCATE TABLE client_notes, investment_accounts, insurance_policies, clients, users RESTART IDENTITY CASCADE'))
-    session.commit()
-    session.rollback()
+    """DB-agnostic cleanup compatible with SQLite smoke mode."""
+    engine = session.get_bind()
+    if engine.dialect.name == "sqlite":
+        tables = [
+            "client_notes",
+            "investment_accounts",
+            "insurance_policies",
+            "clients",
+            "users",
+        ]
+        for table in tables:
+            session.execute(sqlalchemy.text(f"DELETE FROM {table}"))
+        session.commit()
+    else:
+        session.execute(sqlalchemy.text(
+            'TRUNCATE TABLE client_notes, investment_accounts, insurance_policies, clients, users RESTART IDENTITY CASCADE'
+        ))
+        session.commit()
 
 
 class TestClientDeletionIntegration:

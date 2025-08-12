@@ -11,15 +11,9 @@ from httpx import AsyncClient
 
 
 @pytest.fixture
-def client():
-    """Create a test client for the FastAPI app"""
-    # Import here to avoid circular imports
-    try:
-        from main import app
-
-        return TestClient(app)
-    except ImportError:
-        pytest.skip("Main app not found - adjust import path")
+def client(test_client: TestClient):
+    """Reuse shared TestClient fixture from conftest.py"""
+    return test_client
 
 
 class TestHealthEndpoint:
