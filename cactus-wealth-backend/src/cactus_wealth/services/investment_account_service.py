@@ -4,10 +4,11 @@ import logging
 from decimal import Decimal
 
 from fastapi import HTTPException, UploadFile, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from cactus_wealth import schemas
-from cactus_wealth.models import InvestmentAccount, User
+from cactus_wealth.models import InvestmentAccount, User, UserRole
 from cactus_wealth.repositories.client_repository import ClientRepository
 from cactus_wealth.repositories.investment_account_repository import (
     InvestmentAccountRepository,
@@ -34,11 +35,15 @@ class InvestmentAccountService:
                 detail="Client not found",
             )
 
-        # Check if advisor has access to this client
-        if current_advisor.role == "advisor" and client.owner_id != current_advisor.id:
+        # ADMIN can access any client
+        if current_advisor.role == UserRole.ADMIN:
+            return
+
+        # Non-admins can only access their own clients
+        if client.owner_id != current_advisor.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied: You don't have permission to access this client",
+                detail="Access denied. You can only manage accounts for your own clients.",
             )
 
     def create_account_for_client(
@@ -74,6 +79,12 @@ class InvestmentAccountService:
                 aum=Decimal(str(account_data.aum)),
             )
             return self.client_repo.create_investment_account(new_account)
+        except IntegrityError as e:
+            # Duplicate or constraint violation
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Investment account already exists",
+            ) from e
         except Exception as e:
             logger.error(
                 f"Failed to create investment account for client {client_id}: {str(e)}"

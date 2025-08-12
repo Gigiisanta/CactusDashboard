@@ -1,89 +1,86 @@
-"""
-Investment account management endpoints.
-"""
+"""Investment account endpoints using service + auth, aligned with tests."""
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, status
+from sqlmodel import Session
 
-from cactus_wealth.database import get_db
-from cactus_wealth.repositories import InvestmentAccountRepository
+from cactus_wealth.database import get_session
+from cactus_wealth.models import User
+from cactus_wealth.schemas import (
+    InvestmentAccountCreate,
+    InvestmentAccountRead,
+    InvestmentAccountUpdate,
+)
+from cactus_wealth.security import get_current_user
+from cactus_wealth.services import InvestmentAccountService
 
 router = APIRouter()
 
 
-@router.get("/investment-accounts")
-async def get_investment_accounts(db: Session = Depends(get_db)):
-    """Get all investment accounts."""
-    try:
-        investment_account_repo = InvestmentAccountRepository(db)
-        investment_accounts = investment_account_repo.get_all()
-        return {"investment_accounts": investment_accounts}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+def get_account_service(session: Session = Depends(get_session)) -> InvestmentAccountService:
+    return InvestmentAccountService(db_session=session)
 
 
-@router.get("/investment-accounts/{account_id}")
-async def get_investment_account(account_id: int, db: Session = Depends(get_db)):
-    """Get a specific investment account by ID."""
-    try:
-        investment_account_repo = InvestmentAccountRepository(db)
-        investment_account = investment_account_repo.get_by_id(account_id)
-        if not investment_account:
-            raise HTTPException(status_code=404, detail="Investment account not found")
-        return investment_account
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+@router.post(
+    "/clients/{client_id}/investment-accounts/",
+    response_model=InvestmentAccountRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_investment_account_for_client(
+    client_id: int,
+    account_create: InvestmentAccountCreate,
+    current_user: User = Depends(get_current_user),
+    account_service: InvestmentAccountService = Depends(get_account_service),
+) -> InvestmentAccountRead:
+    account = account_service.create_account_for_client(
+        account_data=account_create, client_id=client_id, current_advisor=current_user
+    )
+    return InvestmentAccountRead.model_validate(account)
 
 
-@router.get("/investment-accounts/client/{client_id}")
-async def get_client_investment_accounts(client_id: int, db: Session = Depends(get_db)):
-    """Get all investment accounts for a specific client."""
-    try:
-        investment_account_repo = InvestmentAccountRepository(db)
-        investment_accounts = investment_account_repo.get_by_client_id(client_id)
-        return {"investment_accounts": investment_accounts}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+@router.get("/investment-accounts/{account_id}", response_model=InvestmentAccountRead)
+def get_investment_account(
+    account_id: int,
+    current_user: User = Depends(get_current_user),
+    account_service: InvestmentAccountService = Depends(get_account_service),
+) -> InvestmentAccountRead:
+    account = account_service.get_account(account_id=account_id, current_advisor=current_user)
+    return InvestmentAccountRead.model_validate(account)
 
 
-@router.post("/investment-accounts")
-async def create_investment_account(investment_account_data: dict, db: Session = Depends(get_db)):
-    """Create a new investment account."""
-    try:
-        investment_account_repo = InvestmentAccountRepository(db)
-        investment_account = investment_account_repo.create(investment_account_data)
-        return investment_account
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+@router.get(
+    "/clients/{client_id}/investment-accounts/", response_model=list[InvestmentAccountRead]
+)
+def get_investment_accounts_for_client(
+    client_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_user),
+    account_service: InvestmentAccountService = Depends(get_account_service),
+) -> list[InvestmentAccountRead]:
+    accounts = account_service.get_accounts_by_client(
+        client_id=client_id, current_advisor=current_user, skip=skip, limit=limit
+    )
+    return [InvestmentAccountRead.model_validate(a) for a in accounts]
 
 
-@router.put("/investment-accounts/{account_id}")
-async def update_investment_account(account_id: int, investment_account_data: dict, db: Session = Depends(get_db)):
-    """Update an investment account."""
-    try:
-        investment_account_repo = InvestmentAccountRepository(db)
-        investment_account = investment_account_repo.update(account_id, investment_account_data)
-        if not investment_account:
-            raise HTTPException(status_code=404, detail="Investment account not found")
-        return investment_account
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+@router.put("/investment-accounts/{account_id}", response_model=InvestmentAccountRead)
+def update_investment_account(
+    account_id: int,
+    account_update: InvestmentAccountUpdate,
+    current_user: User = Depends(get_current_user),
+    account_service: InvestmentAccountService = Depends(get_account_service),
+) -> InvestmentAccountRead:
+    account = account_service.update_account(
+        account_id=account_id, update_data=account_update, current_advisor=current_user
+    )
+    return InvestmentAccountRead.model_validate(account)
 
 
-@router.delete("/investment-accounts/{account_id}")
-async def delete_investment_account(account_id: int, db: Session = Depends(get_db)):
-    """Delete an investment account."""
-    try:
-        investment_account_repo = InvestmentAccountRepository(db)
-        success = investment_account_repo.delete(account_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="Investment account not found")
-        return {"message": "Investment account deleted successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+@router.delete("/investment-accounts/{account_id}", response_model=InvestmentAccountRead)
+def delete_investment_account(
+    account_id: int,
+    current_user: User = Depends(get_current_user),
+    account_service: InvestmentAccountService = Depends(get_account_service),
+) -> InvestmentAccountRead:
+    account = account_service.delete_account(account_id=account_id, current_advisor=current_user)
+    return InvestmentAccountRead.model_validate(account)

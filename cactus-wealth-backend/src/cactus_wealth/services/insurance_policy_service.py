@@ -3,6 +3,7 @@ Insurance Policy Service module.
 """
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from cactus_wealth import schemas
@@ -53,6 +54,9 @@ class InsurancePolicyService:
         except ValueError as e:
             # Policy number already exists
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        except IntegrityError as e:
+            # DB-level uniqueness violation
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Insurance policy already exists") from e
         except Exception as e:
             logger.error(
                 f"Failed to create insurance policy for client {client_id}: {str(e)}"
