@@ -61,6 +61,10 @@ class Settings(BaseSettings):
     CONNECTION_TIMEOUT: int = 10
     REQUEST_TIMEOUT: int = 30
 
+    # E2E testing settings
+    E2E_MODE: bool = bool(os.getenv("E2E_MODE", "0") == "1")
+    E2E_SECRET: str = os.getenv("E2E_SECRET", "")
+
     # Logging settings
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"

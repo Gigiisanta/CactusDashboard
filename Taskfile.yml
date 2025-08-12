@@ -743,6 +743,34 @@ tasks:
       - echo "🧪 Tests end-to-end..."
       - cd cactus-wealth-frontend && npm run e2e
 
+  up:smoke:
+    desc: "🚬 Levantar stack mínimo y correr E2E smoke (Chromium)"
+    silent: true
+    cmds:
+      - |
+          echo "E2E smoke: stack minimo (db+backend+frontend) con Podman y Playwright (Chromium)"
+          task --silent podman:ensure || true
+          set -e
+          export E2E_MODE=${E2E_MODE:-1}
+          export E2E_SECRET=${E2E_SECRET:-dev-secret}
+          export BACKEND_URL=${BACKEND_URL:-http://localhost:8000}
+          echo "E2E_SECRET=${E2E_SECRET} (solo local)"
+          {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d db redis backend frontend
+          echo "Esperando health de servicios..."
+          ATT=0
+          until (curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1) && (curl -sf http://localhost:3000/api/health >/dev/null 2>&1); do
+            ATT=$((ATT+1))
+            if [ $ATT -ge 40 ]; then
+              echo "Timeout esperando salud de servicios"; exit 1;
+            fi
+            sleep 3
+          done
+          echo "Servicios saludables"
+          echo "Ejecutando Playwright smoke (@smoke, Chromium)"
+          cd cactus-wealth-frontend
+          npm run -s e2e:install
+          E2E_MODE=$E2E_MODE E2E_SECRET=$E2E_SECRET BACKEND_URL=$BACKEND_URL npm run -s e2e:smoke
+
   # ===== UTILIDADES =====
   setup:
     desc: "⚙️ Configuración inicial"

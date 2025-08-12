@@ -18,6 +18,7 @@ from cactus_wealth.api.v1.endpoints import (
     websockets,
 )
 from cactus_wealth.api.v1.endpoints.auth import auth_router
+from cactus_wealth.core.config import settings
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])

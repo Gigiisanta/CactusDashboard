@@ -36,6 +36,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@jest/globals': 'vitest',
+      '@': fileURLToPath(new URL('./', import.meta.url)),
     },
   },
 })

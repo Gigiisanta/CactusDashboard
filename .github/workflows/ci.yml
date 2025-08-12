@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, feat/** ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  fe-quality:
+    name: Frontend Quality (lint, type-check, vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cactus-wealth-frontend/package.json
+      - name: Install deps
+        working-directory: cactus-wealth-frontend
+        run: npm ci
+      - name: Lint
+        working-directory: cactus-wealth-frontend
+        run: npm run -s lint:ci
+      - name: Type-check
+        working-directory: cactus-wealth-frontend
+        run: npm run -s type-check
+      - name: Vitest
+        working-directory: cactus-wealth-frontend
+        run: npm run -s test:ci
+      - name: Upload Vitest coverage (if any)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fe-vitest-report
+          path: |
+            cactus-wealth-frontend/coverage
+            cactus-wealth-frontend/.vitest-report
+          if-no-files-found: ignore
+
+  be-smoke:
+    name: Backend Smoke (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Install deps
+        working-directory: cactus-wealth-backend
+        run: poetry install --no-root
+      - name: Run smoke tests
+        env:
+          PYTEST_SMOKE: '1'
+        working-directory: cactus-wealth-backend
+        run: poetry run pytest -q
+      - name: Upload pytest htmlcov (if any)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: be-pytest-report
+          path: |
+            cactus-wealth-backend/htmlcov
+            cactus-wealth-backend/.coverage*
+          if-no-files-found: ignore
+
+  e2e-smoke:
+    name: E2E Smoke (Playwright Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [fe-quality, be-smoke]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: cactus-wealth-frontend/package.json
+      - name: Setup Python (backend)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install Poetry
+        run: pipx install poetry
+      - name: Install backend deps
+        working-directory: cactus-wealth-backend
+        run: poetry install --no-root
+      - name: Install frontend deps
+        working-directory: cactus-wealth-frontend
+        run: npm ci
+      - name: Install Playwright (Chromium only)
+        working-directory: cactus-wealth-frontend
+        run: npx playwright install --with-deps chromium
+      - name: Start backend (FastAPI)
+        working-directory: cactus-wealth-backend
+        env:
+          SECRET_KEY: cactus-secret-key-for-tests
+          DATABASE_URL: sqlite:///./test.db
+          CREATE_TABLES_ON_STARTUP: '1'
+        run: |
+          nohup poetry run uvicorn cactus_wealth.main:app --host 0.0.0.0 --port 8000 > ../logs/backend-ci.log 2>&1 &
+          sleep 2
+      - name: Wait backend health
+        run: |
+          ATT=0
+          until (curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1); do
+            ATT=$((ATT+1)); if [ $ATT -ge 60 ]; then echo "Backend health timeout"; exit 1; fi; sleep 2; done
+      - name: Build frontend
+        working-directory: cactus-wealth-frontend
+        run: npm run build
+      - name: Start frontend
+        working-directory: cactus-wealth-frontend
+        run: nohup npm run start > ../logs/frontend-ci.log 2>&1 &
+      - name: Wait frontend health
+        run: |
+          ATT=0
+          until (curl -sf http://localhost:3000/api/health >/dev/null 2>&1); do
+            ATT=$((ATT+1)); if [ $ATT -ge 60 ]; then echo "Frontend health timeout"; exit 1; fi; sleep 2; done
+      - name: Run Playwright smoke
+        working-directory: cactus-wealth-frontend
+        env:
+          BACKEND_URL: http://localhost:8000
+          E2E_MODE: '1'
+          E2E_SECRET: ${{ secrets.E2E_SECRET }}
+        run: npm run -s e2e:smoke
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            cactus-wealth-frontend/playwright-report
+            cactus-wealth-frontend/test-results
+            logs/*.log
+          if-no-files-found: ignore
+
