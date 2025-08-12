@@ -51,8 +51,6 @@ def create_client_note(
         created = repo.create(note_obj)
         return ClientNoteRead.model_validate(created)
     except Exception as e:
-        # Debug: surface error details during smoke tests
-        print(f"create_client_note_error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -63,7 +61,6 @@ def list_client_notes(client_id: int, db: Session = Depends(get_db)):
         notes = repo.get_by_client_id(client_id)
         return [ClientNoteRead.model_validate(n) for n in notes]
     except Exception as e:
-        print(f"list_client_notes_error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -82,7 +79,6 @@ def update_client_note(client_id: int, note_id: int, update: ClientNoteUpdate, d
     except HTTPException:
         raise
     except Exception as e:
-        print(f"update_client_note_error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -98,7 +94,6 @@ def delete_client_note(client_id: int, note_id: int, db: Session = Depends(get_d
     except HTTPException:
         raise
     except Exception as e:
-        print(f"delete_client_note_error: {type(e).__name__}: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
