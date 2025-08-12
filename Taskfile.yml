@@ -34,7 +34,7 @@ tasks:
         done
         echo "⏳ Esperando que los servicios estén listos..."
         ATT=0
-        until (curl -sf http://localhost:8000/health >/dev/null 2>&1) && (curl -sf http://localhost:3000/api/health >/dev/null 2>&1); do
+        until (curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1) && (curl -sf http://localhost:3000/api/health >/dev/null 2>&1); do
           ATT=$((ATT+1))
           if [ $ATT -ge 30 ]; then
             echo "⚠️ Los servicios no están saludables aún. Continuando igualmente."
@@ -283,7 +283,7 @@ tasks:
       - echo "Frontend http://localhost:3000"
       - echo "Backend http://localhost:8000"
       - echo "API Docs http://localhost:8000/docs"
-      - echo "Health http://localhost:8000/health"
+      - echo "Health http://localhost:8000/api/v1/health"
 
   status:aws:
     desc: "📊 Estado de instancia AWS"
@@ -305,7 +305,7 @@ tasks:
     silent: true
     cmds:
       - echo "🏠 Salud local:"
-      - curl -s http://localhost:8000/health || echo "❌ Backend no responde"
+      - curl -s http://localhost:8000/api/v1/health || echo "❌ Backend no responde"
       - curl -s http://localhost:3000/api/health || echo "❌ Frontend no responde"
 
   health:aws:
@@ -315,7 +315,7 @@ tasks:
       - echo "☁️ Salud AWS:"
       - task: aws:ip
       - echo "Verificando endpoints AWS..."
-      - curl -s http://$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text):8000/health || echo "❌ Backend AWS no responde"
+      - curl -s http://$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text):8000/api/v1/health || echo "❌ Backend AWS no responde"
 
   ports:
     desc: "🔌 Verificar puertos en uso"
@@ -473,15 +473,19 @@ tasks:
     desc: "🧹 Limpiar caché del frontend"
     silent: true
     cmds:
-      - echo "🧹 Limpiando caché del frontend..."
-      - cd cactus-wealth-frontend && rm -rf .next node_modules/.cache 2>/dev/null || echo "✅ Caché frontend limpio"
+      - |
+        [ "${FORCE}" = "1" ] || { echo "[SAFEGUARD] agrega FORCE=1 para proceder"; exit 1; }
+      - echo "🧹 Limpiando caché y artefactos del frontend..."
+      - cd cactus-wealth-frontend && rm -rf .next node_modules/.cache coverage playwright-report test-results deadcode-report.json logs 2>/dev/null || true
 
   cleanup:backend:
     desc: "🧹 Limpiar caché del backend"
     silent: true
     cmds:
-      - echo "🧹 Limpiando caché del backend..."
-      - cd cactus-wealth-backend && rm -rf __pycache__ .pytest_cache 2>/dev/null || echo "✅ Caché backend limpio"
+      - |
+        [ "${FORCE}" = "1" ] || { echo "[SAFEGUARD] agrega FORCE=1 para proceder"; exit 1; }
+      - echo "🧹 Limpiando caché y artefactos del backend..."
+      - cd cactus-wealth-backend && rm -rf __pycache__ .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage* logs 2>/dev/null || true
 
   cleanup:docker:
     desc: "🐳 Limpiar Podman (imágenes, contenedores)"
@@ -707,8 +711,6 @@ tasks:
       - echo "🧪 Ejecutando todos los tests..."
       - task: test:backend
       - task: test:frontend
-      - echo "🧪 Ejecutando Jest legado en frontend (opcional)..."
-      - cd cactus-wealth-frontend && npm run test:legacy --silent || true
 
   test:backend:
     desc: "🧪 Tests del backend"
@@ -749,8 +751,9 @@ tasks:
       - echo "⚙️ Configuración inicial de CactusDashboard..."
       - task: setup:podman-compose
       - task: docker:check
-      - echo "📦 Instalando dependencias..."
-      - cd cactus-wealth-backend && pip install -r requirements.txt
+      - echo "📦 Instalando dependencias del backend con Poetry..."
+      - cd cactus-wealth-backend && (poetry --version >/dev/null 2>&1 || pip3 install -q poetry)
+      - cd cactus-wealth-backend && poetry install --no-root
       - cd cactus-wealth-frontend && npm install
       - echo "✅ Configuración completada"
 
