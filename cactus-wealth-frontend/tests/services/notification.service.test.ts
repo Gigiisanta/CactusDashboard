@@ -9,6 +9,8 @@ vi.mock('@/lib/api', () => ({
 }));
 
 import { apiClient } from '@/lib/api';
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockApiClient = apiClient as any;
 
 describe('NotificationService', () => {
   beforeEach(() => {
@@ -35,11 +37,11 @@ describe('NotificationService', () => {
           created_at: '2023-01-02T00:00:00Z',
         },
       ];
-      apiClient.getNotifications.mockResolvedValue(mockNotifications);
+      mockApiClient.getNotifications.mockResolvedValue(mockNotifications);
 
       const result = await NotificationService.getNotifications();
 
-      expect(apiClient.getNotifications).toHaveBeenCalledWith(10);
+      expect(mockApiClient.getNotifications).toHaveBeenCalledWith(10);
       expect(result).toEqual(mockNotifications);
     });
 
@@ -54,17 +56,17 @@ describe('NotificationService', () => {
           created_at: '2023-01-01T00:00:00Z',
         },
       ];
-      apiClient.getNotifications.mockResolvedValue(mockNotifications);
+      mockApiClient.getNotifications.mockResolvedValue(mockNotifications);
 
       const result = await NotificationService.getNotifications(5);
 
-      expect(apiClient.getNotifications).toHaveBeenCalledWith(5);
+      expect(mockApiClient.getNotifications).toHaveBeenCalledWith(5);
       expect(result).toEqual(mockNotifications);
     });
 
     it('should handle API errors gracefully', async () => {
       const error = new Error('API Error');
-      apiClient.getNotifications.mockRejectedValue(error);
+      mockApiClient.getNotifications.mockRejectedValue(error);
 
       await expect(NotificationService.getNotifications()).rejects.toThrow(
         'API Error'
@@ -73,11 +75,11 @@ describe('NotificationService', () => {
 
     it('should handle empty notifications', async () => {
       const mockNotifications: Array<any> = [];
-      apiClient.getNotifications.mockResolvedValue(mockNotifications);
+      mockApiClient.getNotifications.mockResolvedValue(mockNotifications);
 
       const result = await NotificationService.getNotifications();
 
-      expect(apiClient.getNotifications).toHaveBeenCalledWith(10);
+      expect(mockApiClient.getNotifications).toHaveBeenCalledWith(10);
       expect(result).toEqual([]);
     });
   });

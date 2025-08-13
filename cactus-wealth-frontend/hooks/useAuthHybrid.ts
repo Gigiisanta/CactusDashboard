@@ -10,7 +10,8 @@ import { User, UserRole } from '@/types';
  */
 export function useAuthHybrid() {
   const { data: session, status } = useSession();
-  const hasAccessCookie = typeof document !== 'undefined' && document.cookie.includes('access_token=');
+  // No usar document.cookie para httpOnly; el layout se encarga del estado de cookie
+  const hasAccessCookie = false;
   return {
     user: session?.user ?? null,
     session,

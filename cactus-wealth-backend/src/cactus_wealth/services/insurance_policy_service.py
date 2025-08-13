@@ -3,12 +3,13 @@ Insurance Policy Service module.
 """
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session
 
 from cactus_wealth import schemas
+from cactus_wealth.core.logging_config import get_structured_logger
 from cactus_wealth.models import Client, InsurancePolicy, User, UserRole
 from cactus_wealth.repositories import ClientRepository, InsurancePolicyRepository
-from cactus_wealth.core.logging_config import get_structured_logger
 
 logger = get_structured_logger(__name__)
 
@@ -52,7 +53,10 @@ class InsurancePolicyService:
             )
         except ValueError as e:
             # Policy number already exists
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        except IntegrityError as e:
+            # DB-level uniqueness violation
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Insurance policy already exists") from e
         except Exception as e:
             logger.error(
                 f"Failed to create insurance policy for client {client_id}: {str(e)}"
@@ -60,7 +64,7 @@ class InsurancePolicyService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to create insurance policy: {str(e)}",
-            )
+            ) from e
 
     def get_policy(self, policy_id: int, current_advisor: User) -> InsurancePolicy:
         """
@@ -110,8 +114,10 @@ class InsurancePolicyService:
         # Verify client ownership/access
         self._verify_client_access(client_id, current_advisor)
 
+        # Repository does not support pagination parameters
+        _ = (skip, limit)
         return self.insurance_policy_repo.get_insurance_policies_by_client(
-            client_id=client_id, skip=skip, limit=limit
+            client_id=client_id
         )
 
     def update_policy(
@@ -135,21 +141,26 @@ class InsurancePolicyService:
             HTTPException: If authorization fails or policy not found
         """
         # Get and verify policy access
-        policy = self.get_policy(policy_id, current_advisor)
+        self.get_policy(policy_id, current_advisor)
 
         try:
-            return self.insurance_policy_repo.update_insurance_policy(
-                policy_db_obj=policy, update_data=update_data
+            updated = self.insurance_policy_repo.update_insurance_policy(
+                policy_id=policy_id, policy_update=update_data
             )
+            if not updated:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Insurance policy not found"
+                )
+            return updated
         except ValueError as e:
             # Policy number conflict
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
         except Exception as e:
             logger.error(f"Failed to update insurance policy {policy_id}: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to update insurance policy: {str(e)}",
-            )
+            ) from e
 
     def delete_policy(self, policy_id: int, current_advisor: User) -> InsurancePolicy:
         """
@@ -166,18 +177,16 @@ class InsurancePolicyService:
             HTTPException: If authorization fails or policy not found
         """
         # Get and verify policy access (this also checks authorization)
-        self.get_policy(policy_id, current_advisor)
+        policy = self.get_policy(policy_id, current_advisor)
 
-        deleted_policy = self.insurance_policy_repo.delete_insurance_policy(
-            policy_id=policy_id
-        )
-        if not deleted_policy:
+        deleted = self.insurance_policy_repo.delete_insurance_policy(policy_id=policy_id)
+        if not deleted:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Insurance policy not found",
             )
-
-        return deleted_policy
+        # Return the last known state
+        return policy
 
     def _verify_client_access(self, client_id: int, current_advisor: User) -> Client:
         """
@@ -204,7 +213,7 @@ class InsurancePolicyService:
 
         # Non-ADMIN users can only access their own clients
         client = self.client_repo.get_client(client_id=client_id)
-        if not client or client.advisor_id != current_advisor.id:
+        if not client or client.owner_id != current_advisor.id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access denied. You can only manage policies for your own clients.",

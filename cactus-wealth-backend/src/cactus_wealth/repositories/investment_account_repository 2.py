@@ -2,11 +2,12 @@
 Investment Account Repository for handling investment account data operations.
 """
 
-from typing import List, Optional
+
 from sqlmodel import Session, select
-from .base_repository import BaseRepository
+
 from ..models import InvestmentAccount
 from ..schemas import InvestmentAccountCreate, InvestmentAccountUpdate
+from .base_repository import BaseRepository
 
 
 class InvestmentAccountRepository(BaseRepository[InvestmentAccount]):
@@ -15,11 +16,11 @@ class InvestmentAccountRepository(BaseRepository[InvestmentAccount]):
     def __init__(self, session: Session):
         super().__init__(session, InvestmentAccount)
 
-    def get_investment_account(self, account_id: int) -> Optional[InvestmentAccount]:
+    def get_investment_account(self, account_id: int) -> InvestmentAccount | None:
         """Get an investment account by ID."""
         return self.get_by_id(account_id)
 
-    def get_investment_accounts_by_client(self, client_id: int) -> List[InvestmentAccount]:
+    def get_investment_accounts_by_client(self, client_id: int) -> list[InvestmentAccount]:
         """Get all investment accounts for a specific client."""
         statement = select(InvestmentAccount).where(InvestmentAccount.client_id == client_id)
         return list(self.session.exec(statement).all())
@@ -31,21 +32,21 @@ class InvestmentAccountRepository(BaseRepository[InvestmentAccount]):
         account_dict = account_data.model_dump()
         account_dict["client_id"] = client_id
         db_account = InvestmentAccount(**account_dict)
-        
+
         return self.create(db_account)
 
     def update_investment_account(
         self, account_id: int, account_update: InvestmentAccountUpdate
-    ) -> Optional[InvestmentAccount]:
+    ) -> InvestmentAccount | None:
         """Update an investment account."""
         account = self.get_by_id(account_id)
         if not account:
             return None
-        
+
         update_data = account_update.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(account, field, value)
-        
+
         return self.update(account)
 
     def delete_investment_account(self, account_id: int) -> bool:
@@ -53,6 +54,6 @@ class InvestmentAccountRepository(BaseRepository[InvestmentAccount]):
         account = self.get_by_id(account_id)
         if not account:
             return False
-        
+
         self.delete(account)
         return True

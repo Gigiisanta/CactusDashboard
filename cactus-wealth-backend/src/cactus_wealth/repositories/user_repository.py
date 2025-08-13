@@ -4,9 +4,9 @@ User repository for user-related database operations.
 
 from sqlmodel import Session, select
 
-from ..models import User, UserRole, ManagerChangeRequest
+from ..core.crypto import get_password_hash, verify_password
+from ..models import ManagerChangeRequest, User, UserRole
 from .base_repository import BaseRepository
-from ..security import verify_password, get_password_hash
 
 
 class UserRepository(BaseRepository[User]):

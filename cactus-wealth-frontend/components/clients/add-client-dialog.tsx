@@ -289,9 +289,9 @@ export function AddClientDialog({
   };
 
   // Filtrar carteras modelo por perfil de riesgo
-  const filteredPortfolios = (modelPortfolios || []).filter(
-    (portfolio) => portfolio.risk_profile === formData.risk_profile
-  );
+  const filteredPortfolios = Array.isArray(modelPortfolios)
+    ? modelPortfolios.filter((portfolio) => portfolio.risk_profile === formData.risk_profile)
+    : [];
 
   const defaultTrigger = (
     <Button className='gap-2 bg-cactus-600 text-white hover:bg-cactus-700'>

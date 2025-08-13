@@ -4,7 +4,7 @@
  * Custom hook for managing dashboard metrics data with caching.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DashboardMetrics } from '@/types';
 import { DashboardService } from '@/services/dashboard.service';
 import { useBackendUser } from '@/hooks/useBackendUser';
@@ -15,7 +15,7 @@ export const useDashboardMetrics = () => {
   const [error, setError] = useState<string | null>(null);
   const { role } = useBackendUser();
 
-  const fetchMetrics = async () => {
+  const fetchMetrics = useCallback(async () => {
     if (!role || (role !== 'MANAGER' && role !== 'ADVISOR')) {
       setLoading(false);
       return;
@@ -31,11 +31,11 @@ export const useDashboardMetrics = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [role]);
 
   useEffect(() => {
     fetchMetrics();
-  }, [role]);
+  }, [fetchMetrics]);
 
   return {
     metrics,

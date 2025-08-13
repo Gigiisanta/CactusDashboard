@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getBackendApiUrl } from "@/lib/backend";
 
 export async function GET(_request: NextRequest) {
   try {
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
-    
-    const response = await fetch(`${backendUrl}/api/v1/managers/`, {
+    const url = getBackendApiUrl('managers/');
+
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

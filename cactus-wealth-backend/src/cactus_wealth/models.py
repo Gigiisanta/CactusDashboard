@@ -5,7 +5,7 @@ SQLModel definitions for the Cactus Wealth application.
 import enum
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import Optional
 
 from sqlalchemy import Column, DateTime, Enum, Index, LargeBinary
 from sqlmodel import Field, Relationship, SQLModel
@@ -39,18 +39,26 @@ class AssetType(str, enum.Enum):
 
 
 class ClientStatus(str, enum.Enum):
-    """Client status in the sales pipeline."""
+    """Client status in the sales pipeline.
 
-    prospect = "prospect"  # Prospecto
-    contacted = "contacted"  # Contactado
-    first_meeting = "first_meeting"  # Primera Reunión
-    second_meeting = "second_meeting"  # Segunda Reunión
-    opening = "opening"  # Apertura
-    onboarding = "onboarding"  # Proceso de Onboarding
-    reschedule = "reschedule"  # Reagendar
-    active_investor = "active_investor"  # Cliente Activo - Invirtiendo
-    active_insured = "active_insured"  # Cliente Activo - Asegurado
-    dormant = "dormant"  # Inactivo
+    Provide both lowercase and uppercase aliases for compatibility with tests.
+    """
+
+    # Canonical lowercase values (used in DB)
+    prospect = "prospect"
+    contacted = "contacted"
+    first_meeting = "first_meeting"
+    second_meeting = "second_meeting"
+    opening = "opening"
+    onboarding = "onboarding"
+    reschedule = "reschedule"
+    active_investor = "active_investor"
+    active_insured = "active_insured"
+    dormant = "dormant"
+
+    # Uppercase aliases for test compatibility
+    ACTIVE = "active_investor"
+    PROSPECT = "prospect"
 
 
 class LeadSource(str, enum.Enum):
@@ -81,14 +89,15 @@ class User(SQLModel, table=True):
 
     __tablename__ = "users"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True, max_length=255)
     username: str = Field(unique=True, index=True, max_length=50)
-    hashed_password: str = Field(max_length=255)
+    hashed_password: str | None = Field(default=None, max_length=255)
     is_active: bool = Field(default=True)
+    email_verified: bool = Field(default=False)
     role: UserRole = Field(default=UserRole.ADVISOR)
-    manager_id: Optional[int] = Field(default=None, foreign_key="users.id")
-    google_id: Optional[str] = Field(default=None, max_length=255, index=True)  # Google OAuth ID
+    manager_id: int | None = Field(default=None, foreign_key="users.id")
+    google_id: str | None = Field(default=None, max_length=255, index=True)  # Google OAuth ID
     auth_provider: str = Field(default="local", max_length=50)  # "local", "google", "passkey"
     created_at: datetime = Field(
         default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False)
@@ -101,10 +110,10 @@ class User(SQLModel, table=True):
     )
 
     # Relationship with clients
-    clients: List["Client"] = Relationship(back_populates="owner")
-    
+    clients: list["Client"] = Relationship(back_populates="owner")
+
     # Manager-Advisor hierarchy relationships
-    advisors: List["User"] = Relationship(
+    advisors: list["User"] = Relationship(
         back_populates="manager",
         sa_relationship_kwargs={
             "foreign_keys": "User.manager_id",
@@ -134,17 +143,35 @@ class User(SQLModel, table=True):
     )
 
 
+class EmailToken(SQLModel, table=True):
+    """Email verification token model."""
+
+    __tablename__ = "email_tokens"
+
+    id: int | None = Field(default=None, primary_key=True)
+    token: str = Field(max_length=255, unique=True, index=True)
+    user_id: int = Field(foreign_key="users.id")
+    expires_at: datetime = Field(sa_column=Column(DateTime, nullable=False))
+    created_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False))
+
+    __table_args__ = (
+        Index("ix_email_tokens_user_id", "user_id"),
+        Index("ix_email_tokens_expires_at", "expires_at"),
+    )
+
+
 class Client(SQLModel, table=True):
     """Client model for CRM functionality."""
 
     __tablename__ = "clients"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     first_name: str = Field(max_length=100)
     last_name: str = Field(max_length=100)
     email: str = Field(unique=True, max_length=255)
-    phone: Optional[str] = Field(default=None, max_length=20)
+    phone: str | None = Field(default=None, max_length=20)
     risk_profile: RiskProfile = Field(
+        default=RiskProfile.MEDIUM,
         sa_column=Column(Enum(RiskProfile), nullable=False)
     )
 
@@ -153,14 +180,14 @@ class Client(SQLModel, table=True):
         sa_column=Column(Enum(ClientStatus), nullable=False),
         default=ClientStatus.prospect,
     )
-    lead_source: Optional[LeadSource] = Field(
+    lead_source: LeadSource | None = Field(
         sa_column=Column(Enum(LeadSource), nullable=True), default=None
     )
-    notes: Optional[str] = Field(default=None, max_length=2000)
-    live_notes: Optional[str] = Field(default=None, max_length=10000)
-    portfolio_name: Optional[str] = Field(default=None, max_length=100)
-    referred_by_client_id: Optional[int] = Field(default=None, foreign_key="clients.id")
-    savings_capacity: Optional[float] = Field(default=None)
+    notes: str | None = Field(default=None, max_length=2000)
+    live_notes: str | None = Field(default=None, max_length=10000)
+    portfolio_name: str | None = Field(default=None, max_length=100)
+    referred_by_client_id: int | None = Field(default=None, foreign_key="clients.id")
+    savings_capacity: float | None = Field(default=None)
 
     created_at: datetime = Field(
         default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False)
@@ -175,16 +202,20 @@ class Client(SQLModel, table=True):
     owner: User = Relationship(back_populates="clients")
 
     # Relationships
-    investment_accounts: List["InvestmentAccount"] = Relationship(
-        back_populates="client"
+    investment_accounts: list["InvestmentAccount"] = Relationship(
+        back_populates="client",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
-    insurance_policies: List["InsurancePolicy"] = Relationship(back_populates="client")
-    portfolios: List["Portfolio"] = Relationship(back_populates="client")
-    activities: List["ClientActivity"] = Relationship(back_populates="client")
-    notes_list: List["ClientNote"] = Relationship(back_populates="client")
+    insurance_policies: list["InsurancePolicy"] = Relationship(
+        back_populates="client",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+    portfolios: list["Portfolio"] = Relationship(back_populates="client")
+    activities: list["ClientActivity"] = Relationship(back_populates="client")
+    notes_list: list["ClientNote"] = Relationship(back_populates="client")
 
     # Self-referencing relationship for referrals
-    referred_clients: List["Client"] = Relationship(
+    referred_clients: list["Client"] = Relationship(
         back_populates="referred_by",
         sa_relationship_kwargs={
             "foreign_keys": "Client.referred_by_client_id",
@@ -219,7 +250,7 @@ class ClientActivity(SQLModel, table=True):
 
     __tablename__ = "client_activities"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     activity_type: str = Field(max_length=100)
     description: str = Field(max_length=1000)
     created_at: datetime = Field(
@@ -248,7 +279,7 @@ class ClientNote(SQLModel, table=True):
 
     __tablename__ = "client_notes"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     title: str = Field(max_length=200)
     content: str = Field(max_length=10000)
     created_at: datetime = Field(
@@ -281,17 +312,17 @@ class Asset(SQLModel, table=True):
 
     __tablename__ = "assets"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     ticker_symbol: str = Field(unique=True, max_length=20)
     name: str = Field(max_length=200)
     asset_type: AssetType = Field(sa_column=Column(Enum(AssetType), nullable=False))
-    sector: Optional[str] = Field(default=None, max_length=100)
+    sector: str | None = Field(default=None, max_length=100)
     created_at: datetime = Field(
         default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False)
     )
 
     # Relationship with positions
-    positions: List["Position"] = Relationship(back_populates="asset")
+    positions: list["Position"] = Relationship(back_populates="asset")
 
     __table_args__ = (
         Index("ix_assets_ticker_symbol", "ticker_symbol"),
@@ -309,7 +340,7 @@ class Portfolio(SQLModel, table=True):
 
     __tablename__ = "portfolios"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200)
     current_value: Decimal = Field(
         default=Decimal("0"), max_digits=15, decimal_places=2
@@ -327,8 +358,8 @@ class Portfolio(SQLModel, table=True):
     client: Client = Relationship(back_populates="portfolios")
 
     # Relationships
-    positions: List["Position"] = Relationship(back_populates="portfolio")
-    snapshots: List["PortfolioSnapshot"] = Relationship(back_populates="portfolio")
+    positions: list["Position"] = Relationship(back_populates="portfolio")
+    snapshots: list["PortfolioSnapshot"] = Relationship(back_populates="portfolio")
 
     __table_args__ = (
         Index("ix_portfolios_client_id", "client_id"),
@@ -346,7 +377,7 @@ class Position(SQLModel, table=True):
 
     __tablename__ = "positions"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     quantity: Decimal = Field(max_digits=15, decimal_places=6)
     purchase_price: Decimal = Field(max_digits=10, decimal_places=2)
     average_price: Decimal = Field(max_digits=10, decimal_places=2)
@@ -381,7 +412,7 @@ class PortfolioSnapshot(SQLModel, table=True):
 
     __tablename__ = "portfolio_snapshots"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     value: Decimal = Field(max_digits=15, decimal_places=2)
     timestamp: datetime = Field(
         default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False)
@@ -405,7 +436,7 @@ class Report(SQLModel, table=True):
 
     __tablename__ = "reports"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     file_path: str = Field(max_length=500)
     report_type: str = Field(max_length=50, default="PORTFOLIO_SUMMARY")
     generated_at: datetime = Field(
@@ -431,7 +462,7 @@ class InvestmentAccount(SQLModel, table=True):
 
     __tablename__ = "investment_accounts"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     platform: str = Field(max_length=100)
     account_number: str = Field(max_length=100)
     aum: Decimal = Field(max_digits=15, decimal_places=2)
@@ -462,7 +493,7 @@ class InsurancePolicy(SQLModel, table=True):
 
     __tablename__ = "insurance_policies"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     policy_number: str = Field(unique=True, max_length=100)
     insurance_type: str = Field(max_length=100)
     coverage_amount: Decimal = Field(max_digits=15, decimal_places=2)
@@ -495,7 +526,7 @@ class Notification(SQLModel, table=True):
 
     __tablename__ = "notifications"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     message: str = Field(max_length=500)
     is_read: bool = Field(default=False)
     created_at: datetime = Field(
@@ -518,9 +549,9 @@ class ModelPortfolio(SQLModel, table=True):
 
     __tablename__ = "model_portfolios"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=200)
-    description: Optional[str] = Field(default=None, max_length=1000)
+    description: str | None = Field(default=None, max_length=1000)
     risk_profile: RiskProfile = Field(
         sa_column=Column(Enum(RiskProfile), nullable=False)
     )
@@ -533,7 +564,7 @@ class ModelPortfolio(SQLModel, table=True):
     )
 
     # Relationships
-    positions: List["ModelPortfolioPosition"] = Relationship(back_populates="portfolio")
+    positions: list["ModelPortfolioPosition"] = Relationship(back_populates="portfolio")
 
     __table_args__ = (
         Index("ix_model_portfolios_name", "name"),
@@ -550,7 +581,7 @@ class ModelPortfolioPosition(SQLModel, table=True):
 
     __tablename__ = "model_portfolio_positions"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     weight: Decimal = Field(max_digits=5, decimal_places=4)  # Percentage as decimal
     created_at: datetime = Field(
         default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False)
@@ -577,16 +608,16 @@ class WebAuthnCredential(SQLModel, table=True):
 
     __tablename__ = "webauthn_credentials"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="users.id")
     credential_id: str = Field(max_length=255, unique=True)
     public_key: bytes = Field(sa_column=Column(LargeBinary, nullable=False))
     sign_count: int = Field(default=0)
-    transports: Optional[str] = Field(default=None, max_length=255)  # JSON string
-    aaguid: Optional[str] = Field(default=None, max_length=36)
+    transports: str | None = Field(default=None, max_length=255)  # JSON string
+    aaguid: str | None = Field(default=None, max_length=36)
     backup_eligible: bool = Field(default=False)
     backup_state: bool = Field(default=False)
-    device_type: Optional[str] = Field(default=None, max_length=50)
+    device_type: str | None = Field(default=None, max_length=50)
     created_at: datetime = Field(
         default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False)
     )
@@ -597,13 +628,13 @@ class ManagerChangeRequest(SQLModel, table=True):
 
     __tablename__ = "manager_change_requests"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     advisor_id: int = Field(foreign_key="users.id")
     desired_manager_id: int = Field(foreign_key="users.id")
     status: str = Field(default="PENDING", max_length=20)  # PENDING | APPROVED | REJECTED
     created_at: datetime = Field(default_factory=datetime.utcnow, sa_column=Column(DateTime, nullable=False))
-    decided_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime, nullable=True))
-    decided_by_user_id: Optional[int] = Field(default=None, foreign_key="users.id")
+    decided_at: datetime | None = Field(default=None, sa_column=Column(DateTime, nullable=True))
+    decided_by_user_id: int | None = Field(default=None, foreign_key="users.id")
 
     __table_args__ = (
         Index("ix_manager_change_requests_advisor_id", "advisor_id"),

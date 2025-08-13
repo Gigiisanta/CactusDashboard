@@ -8,7 +8,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from cactus_wealth.database import get_session
+from fastapi.testclient import TestClient
+from sqlmodel import Session  # Solo para type hints si es necesario
+
 from cactus_wealth.models import (
     Asset,
     AssetType,
@@ -22,10 +24,6 @@ from cactus_wealth.models import (
     UserRole,
 )
 from cactus_wealth.security import create_access_token
-from fastapi.testclient import TestClient
-from main import app
-from sqlmodel import Session  # Solo para type hints si es necesario
-
 
 # Eliminar fixtures locales de session y client, y usar las globales de conftest.py
 # Eliminar imports innecesarios
@@ -226,7 +224,7 @@ def test_dashboard_summary_admin_user(
 
     # Should have AUM calculated (though exact value depends on market data mock)
     assert "assets_under_management" in data
-    assert isinstance(data["assets_under_management"], (int, float))
+    assert isinstance(data["assets_under_management"], int | float)
     assert data["assets_under_management"] >= 0
 
     # Monthly growth should be None (TODO)
@@ -257,7 +255,7 @@ def test_dashboard_summary_advisor_user(
 
     # Should have AUM calculated for advisor's client only
     assert "assets_under_management" in data
-    assert isinstance(data["assets_under_management"], (int, float))
+    assert isinstance(data["assets_under_management"], int | float)
     assert data["assets_under_management"] >= 0
 
     # Monthly growth should be None (TODO)
@@ -317,11 +315,82 @@ def test_dashboard_summary_response_schema(
 
     # Check field types
     assert isinstance(data["total_clients"], int)
-    assert isinstance(data["assets_under_management"], (int, float))
+    assert isinstance(data["assets_under_management"], int | float)
     assert data["monthly_growth_percentage"] is None or isinstance(
-        data["monthly_growth_percentage"], (int, float)
+        data["monthly_growth_percentage"], int | float
     )
     assert isinstance(data["reports_generated_this_quarter"], int)
+
+def test_aum_history_empty_returns_list(test_client: TestClient, admin_user: User):
+    """AUM history should return 200 and [] on empty DB."""
+    token = create_access_token(data={"sub": admin_user.email})
+    headers = {"Authorization": f"Bearer {token}"}
+    response = test_client.get("/api/v1/dashboard/aum-history?days=7", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert data == []
+
+
+def test_aum_history_with_samples_and_role_filter(
+    session: Session,
+    test_client: TestClient,
+    admin_user: User,
+    advisor_user: User,
+    test_clients_and_portfolios: dict,
+):
+    """Aggregates snapshots by day; admin sees all, advisor sees own only."""
+    from datetime import datetime, timedelta, UTC
+    from decimal import Decimal
+    from cactus_wealth.models import PortfolioSnapshot, Client
+
+    now = datetime.now(UTC)
+    day0 = now - timedelta(days=1)
+    day1 = now
+
+    portfolios = test_clients_and_portfolios["portfolios"]
+    # Two snapshots for two different portfolios across two days
+    s1 = PortfolioSnapshot(portfolio_id=portfolios[0].id, value=Decimal("100000"), timestamp=day0)
+    s2 = PortfolioSnapshot(portfolio_id=portfolios[1].id, value=Decimal("50000"), timestamp=day0)
+    s3 = PortfolioSnapshot(portfolio_id=portfolios[0].id, value=Decimal("101000"), timestamp=day1)
+    s4 = PortfolioSnapshot(portfolio_id=portfolios[1].id, value=Decimal("50500"), timestamp=day1)
+    session.add(s1)
+    session.add(s2)
+    session.add(s3)
+    session.add(s4)
+    session.commit()
+
+    # Admin token
+    admin_token = create_access_token(data={"sub": admin_user.email})
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    r_admin = test_client.get("/api/v1/dashboard/aum-history?days=2", headers=admin_headers)
+    assert r_admin.status_code == 200
+    series_admin = r_admin.json()
+    assert isinstance(series_admin, list)
+    # Expect two days aggregated
+    assert len(series_admin) in (1, 2)  # Depending on same-date rounding, but >=1
+    # Advisor should only see own clients (1 portfolio belongs to advisor's client)
+    advisor_token = create_access_token(data={"sub": advisor_user.email})
+    advisor_headers = {"Authorization": f"Bearer {advisor_token}"}
+    r_adv = test_client.get("/api/v1/dashboard/aum-history?days=2", headers=advisor_headers)
+    assert r_adv.status_code == 200
+    series_adv = r_adv.json()
+    assert isinstance(series_adv, list)
+    # Totals for advisor must be <= admin totals per day
+    if series_admin and series_adv:
+        by_date_admin = {p["date"]: p["value"] for p in series_admin}
+        by_date_adv = {p["date"]: p["value"] for p in series_adv}
+        for d, v in by_date_adv.items():
+            assert v <= by_date_admin.get(d, v)
+
+
+def test_aum_history_days_bounds_validation(test_client: TestClient, admin_user: User):
+    token = create_access_token(data={"sub": admin_user.email})
+    headers = {"Authorization": f"Bearer {token}"}
+    r_low = test_client.get("/api/v1/dashboard/aum-history?days=0", headers=headers)
+    assert r_low.status_code == 422
+    r_high = test_client.get("/api/v1/dashboard/aum-history?days=366", headers=headers)
+    assert r_high.status_code == 422
 
 
 def test_dashboard_reports_kpi_with_generated_reports(

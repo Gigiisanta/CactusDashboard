@@ -8,10 +8,11 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
+from sqlmodel import Session
+
 from cactus_wealth import test_utils
 from cactus_wealth.models import Client, InsurancePolicy, InvestmentAccount
 from cactus_wealth.schemas import InsurancePolicyCreate, InvestmentAccountCreate
-from sqlmodel import Session
 
 
 class TestClientRepository:

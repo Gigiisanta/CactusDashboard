@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendApiUrl } from '@/lib/backend';
 
-const ENV_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL;
-const DEFAULT_BASE_URL = 'http://localhost:8000';
-const BACKEND_URL = ENV_BASE_URL || DEFAULT_BASE_URL;
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +8,8 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('authorization');
     if (!authHeader) return NextResponse.json({ error: 'Authorization header required' }, { status: 401 });
 
-    const res = await fetch(`${BACKEND_URL}/api/v1/users/request-manager-change`, {
+    const url = getBackendApiUrl('users/request-manager-change');
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

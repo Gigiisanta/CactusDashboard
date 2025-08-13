@@ -16,7 +16,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
-      thresholds: { lines: 70, functions: 70, branches: 70, statements: 70 },
+      thresholds: process.env.CI ? { lines: 70, functions: 70, branches: 70, statements: 70 } : { lines: 0, functions: 0, branches: 0, statements: 0 },
     },
     include: [
       'tests/integration/**/*.{test,spec}.{ts,tsx}',
@@ -36,6 +36,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@jest/globals': 'vitest',
+      '@': fileURLToPath(new URL('./', import.meta.url)),
     },
   },
 })

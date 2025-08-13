@@ -54,12 +54,28 @@ A modern, professional dashboard for financial advisors built with Next.js 14, T
 
 The application uses JWT token authentication. Demo credentials:
 
+## 🧭 Runbook: Proxy and Dashboard
+
+- Proxy at `app/api/v1/[...path]/route.ts` forwards Authorization/cookies with timeout and retries. Enable logs with `DEBUG_PROXY=true`.
+- Dashboard layout never blocks rendering. Without session and no `access_token` cookie, it shows a banner linking to `/auth/login` and hides Header/Sidebar, still rendering children.
+- Optional dev auto-login: `NEXT_PUBLIC_AUTO_LOGIN=1`.
+
+Quick smoke via proxy after backend seed:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:3000/api/v1/login/access-token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'username=gio&password=gigi123' | jq -r .access_token)
+
+curl -s --cookie "access_token=$TOKEN" 'http://localhost:3000/api/v1/dashboard/aum-history?days=30' | jq
+```
+
 - Email: `demo@cactuswealth.com`
 - Password: `demo123`
 
 ## 📁 Project Structure
 
-```
+```text
 cactus-wealth-frontend/
 ├── app/                    # Next.js App Router pages
 │   ├── dashboard/          # Protected dashboard routes
@@ -124,9 +140,31 @@ The frontend integrates with the following backend endpoints:
 - Legacy Jest (temporal, fallback):
   - `npm run test:legacy`
 
-Task runner (project root):
-- `task test:frontend` – Vitest CI for frontend
-- `task test:all` – Backend pytest + Frontend Vitest, y Jest legado opcional
+Guidelines for async hooks with debounce/timers:
+
+- Use fake timers and advance to the exact debounce window (e.g., 100ms)
+- Await async updates with `waitFor` prior to asserting hook state
+- For rate‑limited flows, advance timers to pass the window (e.g., 1000ms)
+
+Example:
+
+```ts
+import { renderHook, act, waitFor } from '@testing-library/react'
+import { vi } from 'vitest'
+
+vi.useFakeTimers()
+const { result } = renderHook(() => useHook())
+
+act(() => result.current.refresh())
+act(() => vi.advanceTimersByTime(100))
+
+await waitFor(() => expect(result.current.loading).toBe(false))
+```
+
+Promise rejections:
+
+- Always assert with `await expect(promise).rejects.toThrow(...)`
+- Avoid unawaited rejections to prevent CI noise
 
 ### Key Features Implementation
 
@@ -160,7 +198,8 @@ Task runner (project root):
    ```
 
 2. **Start the production server**:
-   ```bash
+
+```bash
    npm start
    ```
 
@@ -169,6 +208,16 @@ Task runner (project root):
 ### Environment Variables
 
 - `NEXT_PUBLIC_API_BASE_URL`: Backend API base URL
+- `NEXT_PUBLIC_API_URL`: Alternative backend base (used by WebSocket service to build ws URL)
+- `NEXT_PUBLIC_FRONTEND_URL`: Public frontend origin (used in debug page)
+- `DEBUG_PROXY`: Enable verbose proxy logs on server (default: off in production)
+- `NEXT_PUBLIC_DEBUG_WS`: Enable verbose WebSocket logs in browser (default: off in production)
+- `NEXT_PUBLIC_DEBUG_PAGE`: Enable console logs in debug page even outside dev (default: off)
+- `PROXY_TIMEOUT_MS`: Timeout in milliseconds for proxy requests (default: 12000)
+- `PROXY_MAX_RETRIES`: Max retry attempts for proxy requests on 502/503/504 (default: 1)
+- `PROXY_RETRY_BASE_DELAY_MS`: Base backoff delay for retries (default: 250)
+- `NEXT_PUBLIC_LOCALE`: UI locale default for formatting (default: es-ES)
+- `NEXT_PUBLIC_CURRENCY`: Default currency for formatting (default: EUR)
 
 ### Tailwind Configuration
 

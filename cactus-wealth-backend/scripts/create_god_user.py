@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from sqlmodel import SQLModel, Session, create_engine, select, text
 from cactus_wealth.models import User, UserRole
-from cactus_wealth.security import get_password_hash
+from cactus_wealth.core.crypto import get_password_hash
 from cactus_wealth.database import get_engine
 
 def verify_database_connection():
@@ -25,17 +25,24 @@ def verify_database_connection():
             result = session.exec(text("SELECT 1")).first()
             print("✅ Conexión a la base de datos exitosa")
             
-            # Verificar que la tabla users existe (PostgreSQL)
-            result = session.exec(text("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public' AND table_name = 'users'
-            """)).first()
-            if result:
-                print("✅ Tabla 'users' existe en la base de datos")
-            else:
-                print("❌ Tabla 'users' no existe en la base de datos")
-                return False
+            try:
+                # Intentar verificación estilo Postgres; si falla, usar verificación genérica
+                result = session.exec(text(
+                    "SELECT table_name FROM information_schema.tables WHERE table_name = 'users'"
+                )).first()
+                if result:
+                    print("✅ Tabla 'users' existe en la base de datos")
+                else:
+                    print("ℹ️ No se pudo verificar vía information_schema; intentando verificación genérica...")
+                    raise RuntimeError("fallback")
+            except Exception:
+                # Verificación genérica para SQLite/otros
+                try:
+                    session.exec(text("SELECT 1 FROM users LIMIT 1")).first()
+                    print("✅ Tabla 'users' existe (verificación genérica)")
+                except Exception:
+                    print("❌ Tabla 'users' no existe en la base de datos")
+                    return False
                 
             # Contar usuarios existentes
             user_count = session.exec(text("SELECT COUNT(*) FROM users")).first()

@@ -1,10 +1,11 @@
+from fastapi import APIRouter, Depends, Query
+from sqlmodel import Session
+
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User
 from cactus_wealth.repositories import AssetRepository
 from cactus_wealth.schemas import AssetRead
 from cactus_wealth.security import get_current_user
-from fastapi import APIRouter, Depends, Query
-from sqlmodel import Session
 
 router = APIRouter()
 
@@ -21,7 +22,7 @@ def search_assets(
         10, ge=1, le=20, description="Maximum number of results to return"
     ),
     session: Session = Depends(get_session),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),  # noqa: ARG001
 ) -> list[AssetRead]:
     """
     Search for assets by ticker symbol or name.

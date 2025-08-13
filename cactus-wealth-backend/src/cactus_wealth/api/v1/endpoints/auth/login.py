@@ -4,8 +4,10 @@ OAuth2PasswordRequestForm. This module is included under the prefix `/auth/login
 so the final path for obtaining an access token is `/api/v1/auth/login/access-token`.
 """
 
+import logging
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
@@ -13,7 +15,6 @@ from .....core.config import settings
 from .....database import get_session
 from .....schemas import Token
 from .....security import authenticate_user, create_access_token
-import logging
 
 router = APIRouter()
 

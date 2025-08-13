@@ -1,5 +1,8 @@
 from decimal import Decimal
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlmodel import Session
+
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User
 from cactus_wealth.repositories import ModelPortfolioRepository
@@ -13,8 +16,6 @@ from cactus_wealth.schemas import (
     ModelPortfolioWeightValidation,
 )
 from cactus_wealth.security import get_current_user
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session
 
 router = APIRouter()
 

@@ -1,8 +1,12 @@
+from fastapi import APIRouter, Body, Depends, HTTPException, status
+from sqlmodel import Session
+
+from cactus_wealth import services
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User
 from cactus_wealth.repositories import (
-    ClientRepository,
     ActivityRepository,
+    ClientRepository,
     NoteRepository,
 )
 from cactus_wealth.schemas import (
@@ -17,10 +21,6 @@ from cactus_wealth.schemas import (
     ClientUpdate,
 )
 from cactus_wealth.security import get_current_user
-from cactus_wealth import services
-
-from fastapi import APIRouter, Body, Depends, HTTPException, status
-from sqlmodel import Session
 
 router = APIRouter()
 
@@ -36,9 +36,7 @@ def create_client(
     """
     try:
         client_repo = ClientRepository(session)
-        client = client_repo.create_client(
-            client_data=client_create, owner_id=current_user.id
-        )
+        client = client_repo.create_client(client_data=client_create, owner_id=current_user.id)
 
         # Create notification for the advisor
         try:
@@ -84,9 +82,7 @@ def read_client(
     Get a specific client by ID with full details (only if owned by the authenticated advisor).
     """
     client_repo = ClientRepository(session)
-    client = client_repo.get_client(
-        client_id=client_id, owner_id=current_user.id, user_role=current_user.role
-    )
+    client = client_repo.get_client(client_id=client_id, owner_id=current_user.id, user_role=current_user.role)
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"
@@ -131,9 +127,7 @@ def delete_client(
     Delete a client (only if owned by the authenticated advisor).
     """
     client_repo = ClientRepository(session)
-    client = client_repo.delete_client(
-        client_id=client_id, owner_id=current_user.id, user_role=current_user.role
-    )
+    client = client_repo.delete_client(client_id=client_id, owner_id=current_user.id, user_role=current_user.role)
     if client is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Client not found"

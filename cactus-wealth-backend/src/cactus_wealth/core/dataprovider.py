@@ -65,12 +65,11 @@ class YahooFinanceProvider(MarketDataProvider):
 
         except Exception as e:
             if "No data available" in str(e) or "Invalid" in str(e):
-                raise ValueError(f"Ticker '{ticker}' not found or has no valid data")
-            else:
-                logger.error(f"Error retrieving price for {ticker}: {str(e)}")
-                raise Exception(
-                    f"Failed to retrieve market data for {ticker}: {str(e)}"
-                )
+                raise ValueError(f"Ticker '{ticker}' not found or has no valid data") from e
+            logger.error(f"Error retrieving price for {ticker}: {str(e)}")
+            raise Exception(
+                f"Failed to retrieve market data for {ticker}: {str(e)}"
+            ) from e
 
 
 def get_market_data_provider() -> MarketDataProvider:

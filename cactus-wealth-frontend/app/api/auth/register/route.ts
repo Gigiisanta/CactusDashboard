@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getBackendApiUrl } from "@/lib/backend";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
-    
-    const response = await fetch(`${backendUrl}/api/v1/auth/register`, {
+    const url = getBackendApiUrl('auth/register');
+
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

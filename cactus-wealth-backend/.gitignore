@@ -1,1 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Coverage
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.env
+.venv
+venv/
+
+# Logs and reports
+*.log
+logs/
+
+# Build artifacts generated during Docker build
+requirements.txt
 

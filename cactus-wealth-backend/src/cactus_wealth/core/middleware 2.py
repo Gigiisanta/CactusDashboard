@@ -3,13 +3,14 @@ Performance and security middleware for FastAPI.
 """
 
 import time
-from typing import Callable, Awaitable
+from collections.abc import Awaitable, Callable
 
 import redis.asyncio as redis
 import structlog
-from cactus_wealth.core.config import settings
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
+
+from cactus_wealth.core.config import settings
 
 logger = structlog.get_logger()
 

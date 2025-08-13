@@ -28,6 +28,61 @@ Backend API for the Cactus Wealth Dashboard - A financial advisor platform desig
 
 4. Visit http://localhost:8000/docs for the interactive API documentation.
 
+## Runbook: Dev, DB reset, seed, tests
+
+SQLite local reset + seed (safe for SQLite/Postgres):
+
+```bash
+cd cactus-wealth-backend
+poetry install --no-root
+PYTHONPATH=src poetry run python scripts/create_god_user.py  # creates/updates gio/gigi123 (GOD)
+PYTHONPATH=src poetry run python scripts/create_aum_seed.py   # adds demo client/portfolio + 2 snapshots
+```
+
+Postgres migrations (if using PG):
+
+```bash
+alembic upgrade head
+```
+
+Backend tests:
+
+```bash
+poetry run pytest -q
+```
+
+Sample cURL (via backend directly):
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/login/access-token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'username=gio&password=gigi123' | jq -r .access_token)
+
+curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8000/api/v1/dashboard/aum-history?days=30' | jq
+```
+
+## Smoke testing (SQLite)
+
+To run a lightweight smoke suite against SQLite (no external services), use:
+
+```bash
+PYTEST_SMOKE=1 PYTHONPATH=src poetry run pytest -q tests/test_health_endpoint.py tests/test_passkeys.py
+```
+
+Notes:
+- The tests will create a temporary SQLite DB file and drop/recreate tables idempotently.
+- JWT in tests uses a deterministic fallback secret to avoid env coupling.
+- Health endpoint `/health` should always return 200 in < 1s.
+
+## Lint and Types
+
+```bash
+poetry run ruff check src tests --fix
+poetry run mypy src/cactus_wealth/services/webauthn_service.py \
+  src/cactus_wealth/services/investment_account_service.py \
+  src/cactus_wealth/services/insurance_policy_service.py
+```
+
 ## API Endpoints
 
 - `GET /api/v1/health` - Health check endpoint

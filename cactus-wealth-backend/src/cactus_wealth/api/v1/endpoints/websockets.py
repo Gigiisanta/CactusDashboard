@@ -7,11 +7,12 @@ actualizaciones de KPIs y comunicación bidireccional con el frontend.
 
 import json
 
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+
 from cactus_wealth.core.logging_config import get_structured_logger
 from cactus_wealth.core.websocket_manager import connection_manager
 from cactus_wealth.models import User
 from cactus_wealth.security import get_current_user_from_token
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 
 logger = get_structured_logger(__name__)
 router = APIRouter()
@@ -174,8 +175,10 @@ async def handle_client_message(data: dict, user_id: int, websocket: WebSocket):
         # El cliente solicita las últimas notificaciones
         try:
             from cactus_wealth.database import get_session
-            from cactus_wealth.repositories.notification_repository import NotificationRepository
-            
+            from cactus_wealth.repositories.notification_repository import (
+                NotificationRepository,
+            )
+
             # Crear una sesión de base de datos para el WebSocket
             session = next(get_session())
             try:

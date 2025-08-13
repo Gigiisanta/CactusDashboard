@@ -68,9 +68,11 @@ const DashboardActionsSkeleton = () => (
 );
 
 export default function DashboardPage() {
-  const { user } = useAuthHybrid();
-  const { role } = useBackendUser();
+  const { user, isAuthenticated } = useAuthHybrid();
+  const { role, error: roleError } = useBackendUser();
   const isManagerOrAdvisor = role === 'MANAGER' || role === 'ADVISOR';
+
+  // If not authenticated and no cookie, do not block rendering here; layout already shows the banner.
 
   return (
     <div className='space-y-6'>

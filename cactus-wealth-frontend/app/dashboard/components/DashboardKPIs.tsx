@@ -146,18 +146,13 @@ export default React.memo(function DashboardKPIs() {
     );
   }
 
-  // Additional safety check - ensure dashboardData has required properties
-  if (
-    typeof dashboardData.total_clients === 'undefined' ||
-    typeof dashboardData.reports_generated_this_quarter === 'undefined'
-  ) {
-    return (
-      <div className='mb-4 rounded border border-yellow-200 bg-yellow-50 px-4 py-3 text-yellow-700'>
-        Dashboard data is incomplete. Please refresh the page or try logging in
-        again.
-      </div>
-    );
-  }
+  // Additional safety: gracefully fallback to zero values if any field is missing
+  const normalized = {
+    total_clients: dashboardData.total_clients ?? 0,
+    assets_under_management: dashboardData.assets_under_management ?? 0,
+    monthly_growth_percentage: dashboardData.monthly_growth_percentage ?? null,
+    reports_generated_this_quarter: dashboardData.reports_generated_this_quarter ?? 0,
+  };
 
   return (
     <div className='grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4'>

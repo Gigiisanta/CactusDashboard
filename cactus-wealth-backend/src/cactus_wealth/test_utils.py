@@ -5,23 +5,34 @@ replacing the deprecated crud.py module.
 """
 
 from sqlmodel import Session
-from .repositories import UserRepository, ClientRepository, InvestmentAccountRepository, InsurancePolicyRepository
-from .schemas import UserCreate, ClientCreate, InvestmentAccountCreate, InsurancePolicyCreate
-from .security import get_password_hash
+
+from .core.crypto import get_password_hash
+from .repositories import (
+    ClientRepository,
+    InsurancePolicyRepository,
+    InvestmentAccountRepository,
+    UserRepository,
+)
+from .schemas import (
+    ClientCreate,
+    InsurancePolicyCreate,
+    InvestmentAccountCreate,
+    UserCreate,
+)
 
 
 def create_user(session: Session, user_data: UserCreate) -> object:
     """Create a new user for testing purposes."""
     user_repo = UserRepository(session)
-    
+
     # Hash the password
     hashed_password = get_password_hash(user_data.password)
-    
+
     # Create user dict with hashed password
     user_dict = user_data.model_dump()
     user_dict["hashed_password"] = hashed_password
     del user_dict["password"]  # Remove plain password
-    
+
     # Create user using repository
     from .models import User
     db_user = User(**user_dict)
@@ -31,11 +42,11 @@ def create_user(session: Session, user_data: UserCreate) -> object:
 def create_client(session: Session, client_data: ClientCreate, owner_id: int) -> object:
     """Create a new client for testing purposes."""
     client_repo = ClientRepository(session)
-    
+
     # Create client dict with owner_id
     client_dict = client_data.model_dump()
     client_dict["owner_id"] = owner_id
-    
+
     # Create client using repository
     from .models import Client
     db_client = Client(**client_dict)
@@ -57,11 +68,14 @@ def create_client_insurance_policy(session: Session, policy_data: InsurancePolic
 def remove_client(session: Session, client_id: int, owner_id: int) -> object:
     """Remove a client for testing purposes."""
     client_repo = ClientRepository(session)
-    
+
     # First verify the client belongs to the owner
     client = client_repo.verify_advisor_access(client_id, owner_id)
     if not client:
         return None
-    
+
     # Delete the client (cascade will handle related records)
-    return client_repo.delete(client_id)
+    client = client_repo.get_by_id(client_id)
+    if client is None:
+        return None
+    return client_repo.delete(client)

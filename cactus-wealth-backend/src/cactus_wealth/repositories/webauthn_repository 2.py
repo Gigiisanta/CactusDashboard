@@ -4,11 +4,11 @@ WebAuthn credential repository for database operations.
 """
 
 import json
-from typing import List, Optional
+
+from sqlmodel import Session, select
 
 from cactus_wealth.models import WebAuthnCredential
 from cactus_wealth.repositories.base_repository import BaseRepository
-from sqlmodel import Session, select
 
 
 class WebAuthnCredentialRepository(BaseRepository[WebAuthnCredential]):
@@ -17,7 +17,7 @@ class WebAuthnCredentialRepository(BaseRepository[WebAuthnCredential]):
     def __init__(self, session: Session):
         super().__init__(WebAuthnCredential, session)
 
-    async def get_by_credential_id(self, credential_id: str) -> Optional[WebAuthnCredential]:
+    async def get_by_credential_id(self, credential_id: str) -> WebAuthnCredential | None:
         """Get credential by credential_id."""
         statement = select(WebAuthnCredential).where(
             WebAuthnCredential.credential_id == credential_id
@@ -25,7 +25,7 @@ class WebAuthnCredentialRepository(BaseRepository[WebAuthnCredential]):
         result = self.session.exec(statement)
         return result.first()
 
-    async def get_by_user_id(self, user_id: int) -> List[WebAuthnCredential]:
+    async def get_by_user_id(self, user_id: int) -> list[WebAuthnCredential]:
         """Get all credentials for a user."""
         statement = select(WebAuthnCredential).where(
             WebAuthnCredential.user_id == user_id
@@ -39,15 +39,15 @@ class WebAuthnCredentialRepository(BaseRepository[WebAuthnCredential]):
         credential_id: str,
         public_key: bytes,
         sign_count: int,
-        transports: Optional[List[str]] = None,
-        aaguid: Optional[str] = None,
+        transports: list[str] | None = None,
+        aaguid: str | None = None,
         backup_eligible: bool = False,
         backup_state: bool = False,
-        device_type: Optional[str] = None,
+        device_type: str | None = None,
     ) -> WebAuthnCredential:
         """Create a new WebAuthn credential."""
         transports_json = json.dumps(transports) if transports else None
-        
+
         credential = WebAuthnCredential(
             user_id=user_id,
             credential_id=credential_id,
@@ -59,7 +59,7 @@ class WebAuthnCredentialRepository(BaseRepository[WebAuthnCredential]):
             backup_state=backup_state,
             device_type=device_type,
         )
-        
+
         self.session.add(credential)
         self.session.commit()
         self.session.refresh(credential)
@@ -67,7 +67,7 @@ class WebAuthnCredentialRepository(BaseRepository[WebAuthnCredential]):
 
     async def update_sign_count(
         self, credential_id: str, new_sign_count: int
-    ) -> Optional[WebAuthnCredential]:
+    ) -> WebAuthnCredential | None:
         """Update the sign count for a credential."""
         credential = await self.get_by_credential_id(credential_id)
         if credential:

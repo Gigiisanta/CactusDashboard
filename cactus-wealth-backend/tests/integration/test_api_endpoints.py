@@ -7,17 +7,17 @@ el comportamiento end-to-end de los endpoints principales.
 from unittest.mock import Mock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 import sqlalchemy
+from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 
 @pytest.fixture
 def client_and_token(session, test_client):
-    from cactus_wealth.test_utils import create_user, create_client
-    from cactus_wealth.models import UserRole, RiskProfile
-    from cactus_wealth.schemas import UserCreate, ClientCreate
+    from cactus_wealth.models import RiskProfile, UserRole
+    from cactus_wealth.schemas import ClientCreate, UserCreate
     from cactus_wealth.security import create_access_token
+    from cactus_wealth.test_utils import create_client, create_user
 
     # Crear usuario real
     user_data = UserCreate(
@@ -26,7 +26,7 @@ def client_and_token(session, test_client):
         password="integrationpass",
         role=UserRole.JUNIOR_ADVISOR,
     )
-    user = create_user(session=session, user_create=user_data)
+    user = create_user(session=session, user_data=user_data)
 
     # Crear cliente real
     client_data = ClientCreate(
@@ -35,7 +35,7 @@ def client_and_token(session, test_client):
         email="integration.client@test.com",
         risk_profile=RiskProfile.MEDIUM,
     )
-    client = create_client(session=session, client=client_data, owner_id=user.id)
+    client = create_client(session=session, client_data=client_data, owner_id=user.id)
 
     # Generar JWT válido
     token = create_access_token(data={"sub": user.email})
@@ -45,9 +45,24 @@ def client_and_token(session, test_client):
 
 @pytest.fixture(autouse=True)
 def cleanup_db(session):
-    session.execute(sqlalchemy.text('TRUNCATE TABLE client_notes, investment_accounts, insurance_policies, clients, users RESTART IDENTITY CASCADE'))
-    session.commit()
-    session.rollback()
+    """DB-agnostic cleanup compatible with SQLite smoke mode."""
+    engine = session.get_bind()
+    if engine.dialect.name == "sqlite":
+        tables = [
+            "client_notes",
+            "investment_accounts",
+            "insurance_policies",
+            "clients",
+            "users",
+        ]
+        for table in tables:
+            session.execute(sqlalchemy.text(f"DELETE FROM {table}"))
+        session.commit()
+    else:
+        session.execute(sqlalchemy.text(
+            'TRUNCATE TABLE client_notes, investment_accounts, insurance_policies, clients, users RESTART IDENTITY CASCADE'
+        ))
+        session.commit()
 
 
 class TestClientDeletionIntegration:
@@ -250,8 +265,9 @@ class TestBulkUploadInvestmentAccounts:
         import io
 
         import pandas as pd
-        from cactus_wealth.security import create_access_token
+
         from cactus_wealth.models import Client
+        from cactus_wealth.security import create_access_token
 
         # Crear archivo CSV en memoria
         df = pd.DataFrame(
@@ -275,7 +291,6 @@ class TestBulkUploadInvestmentAccounts:
         )
         # Persistir el cliente en la base de datos
         from cactus_wealth.database import get_engine
-        from sqlmodel import Session
         with Session(get_engine()) as session:
             session.add(c)
             session.commit()

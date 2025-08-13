@@ -1,9 +1,10 @@
+from fastapi import APIRouter, Depends
+from sqlmodel import Session, select
+
 from cactus_wealth.database import get_session
 from cactus_wealth.models import Notification, User
 from cactus_wealth.schemas import NotificationRead
 from cactus_wealth.security import get_current_user
-from fastapi import APIRouter, Depends
-from sqlmodel import Session, select
 
 router = APIRouter()
 

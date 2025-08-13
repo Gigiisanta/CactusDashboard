@@ -20,8 +20,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
   
-  // Si hay token (NextAuth) o cookie propia y está intentando acceder al login, redirigir al dashboard
-  if ((token || accessTokenCookie) && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/auth/login')) {
+  // Solo redirigir desde login si tenemos nuestra cookie de acceso válida
+  // Evita loops cuando queda un token de NextAuth antiguo sin acceso al backend
+  if (accessTokenCookie && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/auth/login')) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

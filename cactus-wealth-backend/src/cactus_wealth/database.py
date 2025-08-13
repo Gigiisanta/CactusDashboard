@@ -1,13 +1,14 @@
 from collections.abc import Generator
 
-from cactus_wealth.core.config import settings
-from sqlmodel import Session, SQLModel, StaticPool, create_engine
 from sqlalchemy.engine import Engine
+from sqlmodel import Session, SQLModel, StaticPool, create_engine
 
-_engine = None
+from cactus_wealth.core.config import settings
+
+_engine: Engine | None = None
 
 
-def get_engine(db_url: str = None) -> Engine:
+def get_engine(db_url: str | None = None) -> Engine:
     global _engine
     if _engine is not None:
         return _engine
@@ -22,12 +23,12 @@ def get_engine(db_url: str = None) -> Engine:
         _engine = create_engine(
             db_url,
             echo=False,
-            pool_size=20,
-            max_overflow=30,
-            pool_pre_ping=True,
-            pool_recycle=3600,
+            pool_size=settings.DB_POOL_SIZE,
+            max_overflow=settings.DB_MAX_OVERFLOW,
+            pool_pre_ping=settings.DB_POOL_PRE_PING,
+            pool_recycle=settings.DB_POOL_RECYCLE,
             connect_args={
-                "connect_timeout": 10,
+                "connect_timeout": settings.CONNECTION_TIMEOUT,
                 "application_name": "cactus_wealth_backend",
             },
         )
@@ -36,24 +37,9 @@ def get_engine(db_url: str = None) -> Engine:
 
 def create_tables() -> None:
     """Create all tables in the database."""
-    # Import models to register them with the cleared metadata
-    from cactus_wealth.models import (
-        Asset,
-        Client,
-        ClientActivity,
-        ClientNote,
-        InsurancePolicy,
-        InvestmentAccount,
-        ModelPortfolio,
-        ModelPortfolioPosition,
-        Notification,
-        ManagerChangeRequest,
-        Portfolio,
-        PortfolioSnapshot,
-        Position,
-        Report,
-        User,
-    )
+    # Import models to register them with SQLModel metadata
+    # Importing is sufficient; we don't need to reference the symbols
+    from cactus_wealth import models as _models  # noqa: F401
 
     # Create tables
     SQLModel.metadata.create_all(get_engine())
@@ -73,4 +59,5 @@ def get_session() -> Generator[Session, None, None]:
 
 def get_db() -> Generator[Session, None, None]:
     """Alias for get_session for compatibility."""
-    return get_session()
+    # Important: yield from to keep FastAPI dependency lifecycle semantics
+    yield from get_session()

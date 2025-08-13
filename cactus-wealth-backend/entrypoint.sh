@@ -55,8 +55,59 @@ fi
 echo "✅ Database ready!"
 
 # Run migrations if needed (fast mode)
-echo "🔄 Running database migrations..."
-python -m alembic upgrade head || echo "⚠️ Migration warning (continuing...)"
+echo "🔄 Checking migration state..."
+
+# Decide whether to run upgrade or stamp based on current DB state
+python - <<'PY'
+import os
+import psycopg2
+from urllib.parse import urlparse
+
+db_url = os.getenv('DATABASE_URL', 'postgresql://postgres:postgres@db:5432/cactus_wealth')
+parsed = urlparse(db_url)
+conn = psycopg2.connect(
+    host=parsed.hostname,
+    port=parsed.port or 5432,
+    database=parsed.path[1:],
+    user=parsed.username,
+    password=parsed.password,
+    connect_timeout=2,
+)
+conn.autocommit = True
+cur = conn.cursor()
+
+def exists(table: str) -> bool:
+    cur.execute("SELECT to_regclass(%s)", (table,))
+    return cur.fetchone()[0] is not None
+
+has_alembic = exists('public.alembic_version') or exists('alembic_version')
+has_users = exists('public.users') or exists('users')
+
+print(f"alembic_version_exists={has_alembic} users_exists={has_users}")
+
+# Expose decision to shell via a file flag
+decision = 'upgrade'
+if not has_alembic and has_users:
+    # Existing schema but not tracked by Alembic → stamp instead of upgrade
+    decision = 'stamp'
+
+with open('/tmp/migration_decision', 'w') as f:
+    f.write(decision)
+
+cur.close()
+conn.close()
+PY
+
+MIGRATION_DECISION=$(cat /tmp/migration_decision || echo upgrade)
+echo "📦 Migration decision: $MIGRATION_DECISION"
+
+if [ "$MIGRATION_DECISION" = "stamp" ]; then
+  echo "🔖 Stamping database as up-to-date (head) to avoid duplicate object creation..."
+  python -m alembic stamp head || echo "⚠️ Stamp warning (continuing...)"
+else
+  echo "⬆️  Running alembic upgrade head..."
+  python -m alembic upgrade head || echo "⚠️ Migration warning (continuing...)"
+fi
 
 # Start the application
 echo "🎯 Starting FastAPI application..."

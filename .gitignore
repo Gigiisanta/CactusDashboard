@@ -1,10 +1,35 @@
+# Python
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/htmlcov/
+**/.coverage
+**/.coverage.*
+
+# Node
+**/coverage/
+**/playwright-report/
+**/test-results/
+**/*.tsbuildinfo
+
+# Logs
+**/logs/
+*.log
+
+# Allow lockfiles (in case ignored elsewhere)
+!package-lock.json
+!pnpm-lock.yaml
+!yarn.lock
 # ===== ENVIRONMENT FILES =====
 .env
 .env.local
 .env.production
 .env.staging
+# Allow committing env examples
 *.env
 .env.*
+!.env.example
+!.env.e2e.example
 
 # ===== LOGS =====
 logs/

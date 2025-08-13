@@ -1,14 +1,16 @@
-from typing import Optional
-from sqlmodel import Session, select, func
+
 from sqlalchemy.orm import selectinload
-from ..models import ModelPortfolio, ModelPortfolioPosition, Asset
+from sqlmodel import Session, func, select
+
+from ..models import ModelPortfolio, ModelPortfolioPosition
 from .base_repository import BaseRepository
+
 
 class ModelPortfolioRepository(BaseRepository[ModelPortfolio]):
     def __init__(self, session: Session):
         super().__init__(session, ModelPortfolio)
 
-    def get_with_positions(self, portfolio_id: int) -> Optional[ModelPortfolio]:
+    def get_with_positions(self, portfolio_id: int) -> ModelPortfolio | None:
         statement = (
             select(ModelPortfolio)
             .where(ModelPortfolio.id == portfolio_id)
@@ -48,4 +50,4 @@ class ModelPortfolioRepository(BaseRepository[ModelPortfolio]):
                 ModelPortfolioPosition.model_portfolio_id == portfolio_id
             )
         ).first()
-        return float(result) if result else 0.0 
+        return float(result) if result else 0.0

@@ -3,21 +3,15 @@
 Tests for WebAuthn/Passkey authentication endpoints.
 """
 
-import json
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, patch
 
 import pytest
-from cactus_wealth.models import User, WebAuthnCredential
-from cactus_wealth.schemas import (
-    AuthenticationOptionsRequest,
-    RegistrationOptionsRequest,
-    RegistrationVerificationRequest,
-    AuthenticationVerificationRequest,
-)
 from fastapi import status
 from httpx import AsyncClient
 from sqlmodel import Session
+
+from cactus_wealth.models import User, WebAuthnCredential
 
 
 @pytest.fixture
@@ -56,7 +50,7 @@ def sample_credential(session: Session, sample_user: User) -> WebAuthnCredential
         backup_eligible=True,
         backup_state=False,
         device_type="single_device",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     session.add(credential)
     session.commit()
@@ -140,7 +134,7 @@ class TestPasskeyRegistration:
                 backup_eligible=True,
                 backup_state=False,
                 device_type="single_device",
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             mock_webauthn_service.verify_registration_response.return_value = mock_credential
 
@@ -374,9 +368,10 @@ class TestCredentialManagement:
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["message"] == "Credential deleted successfully"
-        mock_webauthn_service.delete_credential.assert_called_once_with(
-            "test_credential_id", pytest.any
-        )
+        # Ensure called with credential id and some user id
+        called_args, _ = mock_webauthn_service.delete_credential.call_args
+        assert called_args[0] == "test_credential_id"
+        assert isinstance(called_args[1], int)
 
     async def test_delete_credential_not_found(
         self,

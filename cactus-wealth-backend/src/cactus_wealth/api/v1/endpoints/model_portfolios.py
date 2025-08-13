@@ -2,12 +2,10 @@
 Model portfolio management endpoints.
 """
 
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from cactus_wealth.database import get_db
-from cactus_wealth.models import ModelPortfolio
 from cactus_wealth.repositories import ModelPortfolioRepository
 
 router = APIRouter()
@@ -21,7 +19,7 @@ async def get_model_portfolios(db: Session = Depends(get_db)):
         model_portfolios = model_portfolio_repo.get_all()
         return {"model_portfolios": model_portfolios}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/model-portfolios/{model_portfolio_id}")
@@ -36,7 +34,7 @@ async def get_model_portfolio(model_portfolio_id: int, db: Session = Depends(get
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/model-portfolios")
@@ -47,7 +45,7 @@ async def create_model_portfolio(model_portfolio_data: dict, db: Session = Depen
         model_portfolio = model_portfolio_repo.create(model_portfolio_data)
         return model_portfolio
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.put("/model-portfolios/{model_portfolio_id}")
@@ -62,7 +60,7 @@ async def update_model_portfolio(model_portfolio_id: int, model_portfolio_data: 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/model-portfolios/{model_portfolio_id}")
@@ -77,4 +75,4 @@ async def delete_model_portfolio(model_portfolio_id: int, db: Session = Depends(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e)) from e

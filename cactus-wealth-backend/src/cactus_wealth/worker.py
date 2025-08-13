@@ -39,7 +39,7 @@ class EventWorker:
         """Process a single client event - now handled by webhook service"""
         try:
             logger.info("Processing event", event_type=event_data.get("event"))
-            
+
             # Events are now handled by the webhook service in real-time
             # This worker can be used for additional background processing if needed
             logger.info(
@@ -82,7 +82,7 @@ class EventWorker:
                         block=1000,  # 1 second timeout
                     )
 
-                    for stream_name, stream_messages in messages:
+                    for _stream_name, stream_messages in messages:
                         for message_id, fields in stream_messages:
                             try:
                                 # Convert Redis hash to dict

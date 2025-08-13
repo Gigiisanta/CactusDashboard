@@ -2,6 +2,9 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from sqlmodel import Session
+
+import cactus_wealth.services as services
 from cactus_wealth import schemas
 from cactus_wealth.core.dataprovider import MarketDataProvider
 from cactus_wealth.models import (
@@ -14,8 +17,6 @@ from cactus_wealth.models import (
     User,
     UserRole,
 )
-import cactus_wealth.services as services
-from sqlmodel import Session
 
 
 class TestReportService:

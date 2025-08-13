@@ -2,11 +2,10 @@
 Dashboard Service for providing dashboard metrics based on user role.
 """
 
-from typing import List
 
-from ..models import User, UserRole
-from ..repositories.user_repository import UserRepository
+from ..models import UserRole
 from ..repositories.client_repository import ClientRepository
+from ..repositories.user_repository import UserRepository
 from ..schemas import DashboardMetrics, UserWithStats
 
 

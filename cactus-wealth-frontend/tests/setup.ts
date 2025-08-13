@@ -172,4 +172,57 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 })
 
+// Silence noisy, expected warnings in tests to keep CI logs clean
+const originalConsoleError = console.error
+const originalConsoleWarn = console.warn
+
+const silencedSubstrings = [
+  // React act warnings during hook state updates in tests (broad pattern)
+  'Warning: An update to',
+  'wrapped in act',
+  // Radix Dialog accessibility guidance shown in isolated unit tests
+  '`DialogContent` requires a `DialogTitle`',
+  'Missing `Description` or `aria-describedby',
+  // Known error logs intentionally produced in negative-path tests
+  'Error fetching client:',
+  'Hook: Error conectando:',
+  'Failed to disconnect WebSocket:',
+]
+
+function shouldSilenceConsole(args: unknown[]): boolean {
+  try {
+    // Join all args into a single string for matching
+    const text = args
+      .map((a) => {
+        if (typeof a === 'string') return a
+        if (a instanceof Error) return `${a.name}: ${a.message}`
+        try {
+          return JSON.stringify(a)
+        } catch {
+          return String(a)
+        }
+      })
+      .join(' ')
+    return silencedSubstrings.some((m) => text.includes(m))
+  } catch {
+    return false
+  }
+}
+
+console.error = (...args: unknown[]) => {
+  if (shouldSilenceConsole(args)) return
+  if (process.env.CI_STRICT_LOGS === '1') {
+    throw new Error(`Unexpected console.error in tests: ${args.map(String).join(' ')}`)
+  }
+  return originalConsoleError(...args)
+}
+
+console.warn = (...args: unknown[]) => {
+  if (shouldSilenceConsole(args)) return
+  if (process.env.CI_STRICT_LOGS === '1') {
+    throw new Error(`Unexpected console.warn in tests: ${args.map(String).join(' ')}`)
+  }
+  return originalConsoleWarn(...args)
+}
+
 

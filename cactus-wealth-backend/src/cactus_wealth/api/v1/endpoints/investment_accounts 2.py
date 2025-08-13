@@ -1,3 +1,6 @@
+from fastapi import APIRouter, Depends, File, UploadFile, status
+from sqlmodel import Session
+
 from cactus_wealth.database import get_session
 from cactus_wealth.models import User
 from cactus_wealth.schemas import (
@@ -7,8 +10,6 @@ from cactus_wealth.schemas import (
 )
 from cactus_wealth.security import get_current_user
 from cactus_wealth.services import InvestmentAccountService
-from fastapi import APIRouter, Depends, File, UploadFile, status
-from sqlmodel import Session
 
 router = APIRouter()
 

@@ -6,6 +6,9 @@ vars:
   COMPOSE_FILE: "docker-compose.yml"
   PODMAN_COMPOSE:
     sh: 'command -v podman-compose >/dev/null 2>&1 && echo podman-compose || echo "python3 -m podman_compose"'
+  # Puertos rootless por defecto para Nginx en producción local
+  NGINX_HTTP_PORT: "8080"
+  NGINX_HTTPS_PORT: "8443"
 
 tasks:
   # ===== DESARROLLO LOCAL =====
@@ -34,7 +37,7 @@ tasks:
         done
         echo "⏳ Esperando que los servicios estén listos..."
         ATT=0
-        until (curl -sf http://localhost:8000/health >/dev/null 2>&1) && (curl -sf http://localhost:3000/api/health >/dev/null 2>&1); do
+        until (curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1) && (curl -sf http://localhost:3000/api/health >/dev/null 2>&1); do
           ATT=$((ATT+1))
           if [ $ATT -ge 30 ]; then
             echo "⚠️ Los servicios no están saludables aún. Continuando igualmente."
@@ -283,7 +286,7 @@ tasks:
       - echo "Frontend http://localhost:3000"
       - echo "Backend http://localhost:8000"
       - echo "API Docs http://localhost:8000/docs"
-      - echo "Health http://localhost:8000/health"
+      - echo "Health http://localhost:8000/api/v1/health"
 
   status:aws:
     desc: "📊 Estado de instancia AWS"
@@ -305,7 +308,7 @@ tasks:
     silent: true
     cmds:
       - echo "🏠 Salud local:"
-      - curl -s http://localhost:8000/health || echo "❌ Backend no responde"
+      - curl -s http://localhost:8000/api/v1/health || echo "❌ Backend no responde"
       - curl -s http://localhost:3000/api/health || echo "❌ Frontend no responde"
 
   health:aws:
@@ -315,7 +318,7 @@ tasks:
       - echo "☁️ Salud AWS:"
       - task: aws:ip
       - echo "Verificando endpoints AWS..."
-      - curl -s http://$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text):8000/health || echo "❌ Backend AWS no responde"
+      - curl -s http://$(aws ec2 describe-instances --instance-ids {{.AWS_INSTANCE_ID}} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text):8000/api/v1/health || echo "❌ Backend AWS no responde"
 
   ports:
     desc: "🔌 Verificar puertos en uso"
@@ -473,15 +476,19 @@ tasks:
     desc: "🧹 Limpiar caché del frontend"
     silent: true
     cmds:
-      - echo "🧹 Limpiando caché del frontend..."
-      - cd cactus-wealth-frontend && rm -rf .next node_modules/.cache 2>/dev/null || echo "✅ Caché frontend limpio"
+      - |
+        [ "${FORCE}" = "1" ] || { echo "[SAFEGUARD] agrega FORCE=1 para proceder (saltando sin error)"; exit 0; }
+      - echo "🧹 Limpiando caché y artefactos del frontend..."
+      - cd cactus-wealth-frontend && rm -rf .next node_modules/.cache coverage playwright-report test-results deadcode-report.json logs 2>/dev/null || true
 
   cleanup:backend:
     desc: "🧹 Limpiar caché del backend"
     silent: true
     cmds:
-      - echo "🧹 Limpiando caché del backend..."
-      - cd cactus-wealth-backend && rm -rf __pycache__ .pytest_cache 2>/dev/null || echo "✅ Caché backend limpio"
+      - |
+        [ "${FORCE}" = "1" ] || { echo "[SAFEGUARD] agrega FORCE=1 para proceder (saltando sin error)"; exit 0; }
+      - echo "🧹 Limpiando caché y artefactos del backend..."
+      - cd cactus-wealth-backend && rm -rf __pycache__ .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage* logs 2>/dev/null || true
 
   cleanup:docker:
     desc: "🐳 Limpiar Podman (imágenes, contenedores)"
@@ -707,15 +714,17 @@ tasks:
       - echo "🧪 Ejecutando todos los tests..."
       - task: test:backend
       - task: test:frontend
-      - echo "🧪 Ejecutando Jest legado en frontend (opcional)..."
-      - cd cactus-wealth-frontend && npm run test:legacy --silent || true
 
   test:backend:
     desc: "🧪 Tests del backend"
     silent: true
     cmds:
       - echo "🧪 Tests del backend..."
-      - cd cactus-wealth-backend && python -m pytest tests/ -v
+      - |
+        cd cactus-wealth-backend && \
+        (poetry --version >/dev/null 2>&1 || pip3 install -q poetry) && \
+        poetry install --no-root && \
+        poetry run pytest tests/ -v
 
   test:frontend:
     desc: "🧪 Tests del frontend"
@@ -732,25 +741,90 @@ tasks:
       - task: dev:stop
       - task: dev
       - sleep 30
-      - cd cactus-wealth-backend && python -m pytest tests/integration/ -v
+      - cd cactus-wealth-backend && poetry run pytest tests/integration/ -v
 
   test:e2e:
     desc: "🧪 Tests end-to-end"
     silent: true
     cmds:
       - echo "🧪 Tests end-to-end..."
-      - cd cactus-wealth-frontend && npm run e2e
+      - cd cactus-wealth-frontend && npm run -s e2e:full
+
+  up:smoke:
+    desc: "🚬 Levantar stack mínimo y correr E2E smoke (Chromium)"
+    silent: true
+    cmds:
+      - |
+          echo "E2E smoke: stack minimo (db+backend+frontend) con Podman y Playwright (Chromium)"
+          task --silent podman:ensure || true
+          set -e
+          export E2E_MODE=${E2E_MODE:-1}
+          export E2E_SECRET=${E2E_SECRET:-dev-secret}
+          export BACKEND_URL=${BACKEND_URL:-http://localhost:8000}
+          echo "E2E_SECRET=${E2E_SECRET} (solo local)"
+          {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d db redis backend frontend
+          echo "Esperando health de servicios..."
+          ATT=0
+          until (curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1) && (curl -sf http://localhost:3000/api/health >/dev/null 2>&1); do
+            ATT=$((ATT+1))
+            if [ $ATT -ge 40 ]; then
+              echo "Timeout esperando salud de servicios"; exit 1;
+            fi
+            sleep 3
+          done
+          echo "Servicios saludables"
+          echo "Ejecutando Playwright smoke (@smoke, Chromium)"
+          cd cactus-wealth-frontend
+          npm run -s e2e:install
+          E2E_MODE=$E2E_MODE E2E_SECRET=$E2E_SECRET BACKEND_URL=$BACKEND_URL BASE_URL=http://localhost:3000 npm run -s e2e:smoke
 
   # ===== UTILIDADES =====
+  seed:god:
+    desc: "🌱 Crear usuario GOD 'gio' en backend (contenedor)"
+    silent: true
+    cmds:
+      - echo "👤 Creando usuario GOD en backend..."
+      - |
+        set -e
+        {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d backend db redis
+        echo "⏳ Esperando health del backend..."
+        ATT=0
+        until (curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1); do
+          ATT=$((ATT+1)); if [ $ATT -ge 40 ]; then echo "Timeout esperando backend"; exit 1; fi; sleep 3; done
+        echo "🚀 Ejecutando script create_god_user.py"
+        {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} exec backend python scripts/create_god_user.py
+
+  dev:onboard:
+    desc: "🚀 Levantar stack y preparar usuarios base (GOD)"
+    silent: true
+    cmds:
+      - echo "🚀 Iniciando onboarding de desarrollo..."
+      - task: dev
+      - echo "⏳ Verificando salud de servicios..."
+      - |
+        ATT=0
+        until (curl -sf http://localhost:8000/api/v1/health >/dev/null 2>&1) && (curl -sf http://localhost:3000/api/health >/dev/null 2>&1); do
+          ATT=$((ATT+1)); if [ $ATT -ge 40 ]; then echo "Timeout esperando servicios"; exit 1; fi; sleep 3; done
+      - task: seed:god
+      - |
+        echo "✅ Onboarding listo. Credenciales GOD: gio / gigi123"
   setup:
     desc: "⚙️ Configuración inicial"
     silent: true
     cmds:
       - echo "⚙️ Configuración inicial de CactusDashboard..."
       - task: setup:podman-compose
-      - task: docker:check
-      - echo "📦 Instalando dependencias..."
-      - cd cactus-wealth-backend && pip install -r requirements.txt
+      - |
+        # Preferir Podman; si hay docker CLI, también sirve (alias o real)
+        if task --silent podman:check; then
+          echo "✅ Podman listo (setup)";
+        else
+          echo "ℹ️ Podman no disponible, intentando docker...";
+          task --silent docker:check || { echo "❌ Ni Podman ni Docker disponibles"; exit 1; };
+        fi
+      - echo "📦 Instalando dependencias del backend con Poetry..."
+      - cd cactus-wealth-backend && (poetry --version >/dev/null 2>&1 || pip3 install -q poetry)
+      - cd cactus-wealth-backend && poetry install --no-root
       - cd cactus-wealth-frontend && npm install
       - echo "✅ Configuración completada"
 
@@ -820,3 +894,114 @@ tasks:
       - echo "  task debug            - Diagnóstico"
       - echo "  task cleanup          - Limpiar todo"
       - echo "  task help             - Ayuda completa"
+
+  verify:
+    desc: "✅ Verificar stack local (prod + monitoring)"
+    silent: true
+    cmds:
+      - echo "✅ Verificando stack local..."
+      - 'curl -sf http://localhost/ | head -n 1 || curl -sf http://localhost:8080/ | head -n 1 || echo "❌ Nginx no responde"'
+      - 'curl -sf http://localhost/api/v1/health || curl -sf http://localhost:8080/api/v1/health || echo "❌ Backend (proxy) no responde"'
+      - 'curl -sf http://localhost:9090/-/healthy || echo "❌ Prometheus no responde"'
+      - 'curl -sf http://localhost:3001/login | head -n 1 || echo "❌ Grafana no responde"'
+
+  # ===== PRODUCCIÓN LOCAL (NGINX + FRONTEND PROD) =====
+  prod:start:
+    desc: "🚀 Iniciar perfil producción local (nginx+frontend_prod) en 8080/8443"
+    silent: true
+    cmds:
+      - echo "🌵 Iniciando producción local (Nginx {{.NGINX_HTTP_PORT}}/{{.NGINX_HTTPS_PORT}})..."
+      - task: podman:ensure
+      - echo "⏹️ Deteniendo frontend dev si está activo..."
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} stop frontend || true'
+      - echo "🚀 Levantando servicios base (db, redis, backend)..."
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} up -d db redis backend'
+      - echo "🚀 Levantando frontend_prod + nginx (perfil production)..."
+      - 'NGINX_HTTP_PORT={{.NGINX_HTTP_PORT}} NGINX_HTTPS_PORT={{.NGINX_HTTPS_PORT}} {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} --profile production up -d frontend_prod nginx'
+      - echo "⏳ Esperando readiness de Nginx y backend vía proxy..."
+      - |
+        ATT=0
+        until (curl -sf http://localhost:{{.NGINX_HTTP_PORT}}/ >/dev/null 2>&1) && (curl -sf http://localhost:{{.NGINX_HTTP_PORT}}/api/v1/health >/dev/null 2>&1); do
+          ATT=$((ATT+1)); if [ $ATT -ge 40 ]; then echo "Timeout esperando Nginx/backend"; break; fi; sleep 3;
+        done
+
+  prod:stop:
+    desc: "⏹️ Detener perfil producción local (nginx+frontend_prod)"
+    silent: true
+    cmds:
+      - echo "⏹️ Deteniendo servicios de producción (nginx, frontend_prod, backend)..."
+      - 'NGINX_HTTP_PORT={{.NGINX_HTTP_PORT}} NGINX_HTTPS_PORT={{.NGINX_HTTPS_PORT}} {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} --profile production stop nginx frontend_prod || true'
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} stop backend || true'
+      - echo "✅ Producción local detenida"
+
+  prod:restart:
+    desc: "🔄 Reiniciar perfil producción local"
+    silent: true
+    cmds:
+      - task: prod:stop
+      - sleep 2
+      - task: prod:start
+
+  prod:status:
+    desc: "📊 Estado de producción local"
+    silent: true
+    cmds:
+      - echo "📊 Estado (production profile):"
+      - 'NGINX_HTTP_PORT={{.NGINX_HTTP_PORT}} NGINX_HTTPS_PORT={{.NGINX_HTTPS_PORT}} {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} ps'
+
+  # ===== MONITORING (PROMETHEUS + GRAFANA) =====
+  monitoring:start:
+    desc: "📈 Iniciar perfil monitoring (Prometheus 9090, Grafana 3001)"
+    silent: true
+    cmds:
+      - echo "📈 Iniciando monitoring..."
+      - task: podman:ensure
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} --profile monitoring up -d'
+      - echo "⏳ Esperando salud de Prometheus..."
+      - 'ATT=0; until (curl -sf http://localhost:9090/-/healthy >/dev/null 2>&1); do ATT=$((ATT+1)); if [ $ATT -ge 40 ]; then echo "Timeout esperando Prometheus"; break; fi; sleep 2; done'
+
+  monitoring:stop:
+    desc: "⏹️ Detener perfil monitoring"
+    silent: true
+    cmds:
+      - echo "⏹️ Deteniendo monitoring..."
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} --profile monitoring stop'
+      - echo "✅ Monitoring detenido"
+
+  monitoring:status:
+    desc: "📊 Estado de monitoring"
+    silent: true
+    cmds:
+      - echo "📊 Estado (monitoring profile):"
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} ps'
+
+  prod:logs:
+    desc: "📺 Logs en vivo de producción (nginx + frontend_prod)"
+    silent: true
+    cmds:
+      - echo "📺 Logs de producción (Ctrl+C para salir)..."
+      - task: podman:ensure
+      - 'NGINX_HTTP_PORT={{.NGINX_HTTP_PORT}} NGINX_HTTPS_PORT={{.NGINX_HTTPS_PORT}} {{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} --profile production up -d nginx frontend_prod'
+      - |
+        echo "=== cactus-nginx ===" &
+        (stdbuf -oL -eL podman logs -f --tail=100 cactus-nginx | sed -u "s/^/[cactus-nginx] /") &
+        echo "=== cactus-frontend-prod ===" &
+        (stdbuf -oL -eL podman logs -f --tail=100 cactus-frontend-prod | sed -u "s/^/[cactus-frontend-prod] /") &
+        wait
+
+  monitoring:logs:
+    desc: "📺 Logs en vivo de monitoring (Prometheus + Grafana)"
+    silent: true
+    cmds:
+      - echo "📺 Logs de monitoring (Ctrl+C para salir)..."
+      - task: podman:ensure
+      - '{{.PODMAN_COMPOSE}} -f {{.COMPOSE_FILE}} --profile monitoring up -d'
+      - |
+        echo "=== cactus-prometheus ===" &
+        (stdbuf -oL -eL podman logs -f --tail=100 cactus-prometheus | sed -u "s/^/[cactus-prometheus] /") &
+        echo "=== cactus-grafana ===" &
+        (stdbuf -oL -eL podman logs -f --tail=100 cactus-grafana | sed -u "s/^/[cactus-grafana] /") &
+        wait
+
+  # Nota: tarea prod:ssh removida temporalmente mientras se corrige el YAML
+

@@ -1,15 +1,15 @@
 import logging
 from typing import Annotated
 
-from cactus_wealth import schemas
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
+from sqlmodel import Session, select
+
+from cactus_wealth import schemas, services
 from cactus_wealth.core.dataprovider import YahooFinanceProvider
 from cactus_wealth.database import get_session
 from cactus_wealth.models import Client, Portfolio, User
 from cactus_wealth.security import get_current_user as get_current_active_user
-from cactus_wealth import services
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import Response
-from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
 

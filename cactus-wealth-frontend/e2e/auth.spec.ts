@@ -6,22 +6,16 @@ test.describe('Authentication Flow', () => {
     await page.goto('/');
   });
 
-  test('should navigate to login page when not authenticated', async ({
+  test('@smoke should navigate to login page when not authenticated', async ({
     page,
   }) => {
     // Try to access dashboard without authentication
     await page.goto('/dashboard');
 
-    // Should be redirected to login page
-    await expect(page).toHaveURL(/.*login/);
-
-    // Verify login page elements are present
-    await expect(page.getByRole('heading', { name: /login/i })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: /email/i })).toBeVisible();
-    await expect(
-      page.getByRole('textbox', { name: /password/i })
-    ).toBeVisible();
-    await expect(page.getByRole('button', { name: /sign in/i })).toBeVisible();
+    // Should be redirected to /auth/login (NextAuth UI en ES)
+    await expect(page).toHaveURL(/.*auth\/login/);
+    await expect(page.getByRole('heading', { name: /Autenticación/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Iniciar Sesión/i })).toBeVisible();
   });
 
   test('should show validation errors for invalid login', async ({ page }) => {

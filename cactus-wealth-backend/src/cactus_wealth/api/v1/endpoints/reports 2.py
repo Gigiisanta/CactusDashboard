@@ -2,16 +2,16 @@ import logging
 from pathlib import Path
 from typing import Annotated
 
-from cactus_wealth import schemas
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import FileResponse
+from sqlalchemy import desc
+from sqlmodel import Session, select
+
+from cactus_wealth import schemas, services
 from cactus_wealth.core.dataprovider import MarketDataProvider, get_market_data_provider
 from cactus_wealth.database import get_session
 from cactus_wealth.models import Report, User
 from cactus_wealth.security import get_current_user
-from cactus_wealth import services
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import FileResponse
-from sqlmodel import Session, select
-from sqlalchemy import desc
 
 logger = logging.getLogger(__name__)
 

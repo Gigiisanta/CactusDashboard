@@ -92,7 +92,7 @@ describe('ClientService', () => {
 
       it('should handle API errors', async () => {
         const error = new Error('Failed to fetch clients');
-        mockApiClient.getClients.mockRejectedValue(error);
+        mockApiClient.getClients.mockRejectedValueOnce(error);
 
         await expect(ClientService.getClients()).rejects.toThrow('Failed to fetch clients');
       });
@@ -110,7 +110,7 @@ describe('ClientService', () => {
 
       it('should handle client not found', async () => {
         const error = new Error('Client not found');
-        mockApiClient.getClient.mockRejectedValue(error);
+        mockApiClient.getClient.mockRejectedValueOnce(error);
 
         await expect(ClientService.getClient(999)).rejects.toThrow('Client not found');
       });
@@ -292,14 +292,14 @@ describe('ClientService', () => {
   describe('Error Handling', () => {
     it('should propagate network errors', async () => {
       const networkError = new Error('Network timeout');
-      mockApiClient.getClients.mockRejectedValue(networkError);
+      mockApiClient.getClients.mockRejectedValueOnce(networkError);
 
       await expect(ClientService.getClients()).rejects.toThrow('Network timeout');
     });
 
     it('should handle authorization errors', async () => {
       const authError = new Error('Unauthorized');
-      mockApiClient.getClient.mockRejectedValue(authError);
+      mockApiClient.getClient.mockRejectedValueOnce(authError);
 
       await expect(ClientService.getClient(1)).rejects.toThrow('Unauthorized');
     });
