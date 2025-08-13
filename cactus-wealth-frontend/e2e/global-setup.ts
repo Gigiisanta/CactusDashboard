@@ -23,8 +23,8 @@ async function globalSetup(config: FullConfig) {
     const healthResp = await fetch(beHealth);
     if (!healthResp.ok) throw new Error(`Backend health failed: ${healthResp.status}`);
 
-    // E2E reset/seed if enabled
-    if (process.env.E2E_MODE === '1' && process.env.E2E_SECRET) {
+    // E2E reset/seed if enabled (skip in smoke when PWTEST_SMOKE=1)
+    if (process.env.E2E_MODE === '1' && process.env.E2E_SECRET && process.env.PWTEST_SMOKE !== '1') {
       const resetUrl = `${backendURL}/api/v1/health/e2e/reset`;
       const resetResp = await fetch(resetUrl, { method: 'POST', headers: { 'X-E2E-SECRET': process.env.E2E_SECRET } });
       if (!resetResp.ok) throw new Error(`E2E reset failed: ${resetResp.status}`);

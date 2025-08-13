@@ -1,6 +1,6 @@
 """Investment account endpoints using service + auth, aligned with tests."""
 
-from fastapi import APIRouter, Depends, status, UploadFile
+from fastapi import APIRouter, Depends, UploadFile, status
 from sqlmodel import Session
 
 from cactus_wealth.database import get_session
@@ -12,7 +12,9 @@ from cactus_wealth.schemas import (
 )
 from cactus_wealth.security import get_current_user
 from cactus_wealth.services import InvestmentAccountService
-from cactus_wealth.services import InvestmentAccountService as LegacyInvestmentAccountService
+from cactus_wealth.services import (
+    InvestmentAccountService as LegacyInvestmentAccountService,
+)
 
 router = APIRouter()
 

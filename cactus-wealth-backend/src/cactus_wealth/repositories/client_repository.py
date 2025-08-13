@@ -5,7 +5,14 @@ Client repository for client-related database operations.
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, func, select
 
-from ..models import Client, ClientStatus, InsurancePolicy, InvestmentAccount
+from ..models import (
+    Client,
+    ClientStatus,
+    InsurancePolicy,
+    InvestmentAccount,
+    UserRole,
+)
+from ..schemas import ClientCreate, ClientUpdate
 from .base_repository import BaseRepository
 
 
@@ -15,9 +22,16 @@ class ClientRepository(BaseRepository[Client]):
     def __init__(self, session: Session):
         super().__init__(session, Client)
 
-    def get_client(self, client_id: int) -> Client | None:
-        """Compatibility helper to fetch a client by ID."""
-        return self.get_by_id(client_id)
+    def get_client(self, client_id: int, owner_id: int | None = None, user_role: UserRole | None = None) -> Client | None:
+        """Fetch a client by ID with optional ownership check.
+
+        If user_role is GOD, bypass ownership checks. If owner_id is provided,
+        ensure the client belongs to that owner.
+        """
+        statement = select(Client).where(Client.id == client_id)
+        if owner_id is not None and user_role != UserRole.GOD:
+            statement = statement.where(Client.owner_id == owner_id)
+        return self.session.exec(statement).first()
 
     def get_by_email(self, email: str) -> Client | None:
         """
@@ -32,9 +46,7 @@ class ClientRepository(BaseRepository[Client]):
         statement = select(Client).where(Client.email == email)
         return self.session.exec(statement).first()
 
-    def get_by_advisor(
-        self, advisor_id: int, skip: int = 0, limit: int = 100
-    ) -> list[Client]:
+    def get_by_advisor(self, advisor_id: int, skip: int = 0, limit: int = 100) -> list[Client]:
         """
         Get all clients for a specific advisor with pagination and eager loading.
 
@@ -57,6 +69,28 @@ class ClientRepository(BaseRepository[Client]):
             .limit(limit)
             .order_by(Client.created_at.desc())
         )
+        return list(self.session.exec(statement).all())
+
+    def get_clients_by_user(
+        self,
+        owner_id: int,
+        skip: int = 0,
+        limit: int = 100,
+        user_role: UserRole | None = None,
+    ) -> list[Client]:
+        """List clients for a user. GOD can see all clients."""
+        statement = (
+            select(Client)
+            .options(
+                selectinload(Client.investment_accounts),
+                selectinload(Client.insurance_policies),
+            )
+            .offset(skip)
+            .limit(limit)
+            .order_by(Client.created_at.desc())
+        )
+        if user_role != UserRole.GOD:
+            statement = statement.where(Client.owner_id == owner_id)
         return list(self.session.exec(statement).all())
 
     def get_with_products(self, client_id: int) -> Client | None:
@@ -189,6 +223,49 @@ class ClientRepository(BaseRepository[Client]):
         _ = entity.investment_accounts  # trigger load
         _ = entity.insurance_policies
         return super().delete(entity)
+
+    # ================== CRM-specific write operations ==================
+
+    def create_client(self, client_data: ClientCreate, owner_id: int) -> Client:
+        """Create a new client with ownership and basic validations."""
+        # Enforce unique email at application-level for clearer error messages
+        existing = self.get_by_email(client_data.email)
+        if existing is not None:
+            raise ValueError("A client with this email already exists")
+
+        db_client = Client(**client_data.model_dump(), owner_id=owner_id)
+        self.session.add(db_client)
+        self.session.commit()
+        self.session.refresh(db_client)
+        return db_client
+
+    def update_client(
+        self,
+        client_id: int,
+        client_update: ClientUpdate,
+        owner_id: int,
+        user_role: UserRole | None = None,
+    ) -> Client | None:
+        """Update an existing client if the user has access."""
+        client = self.get_client(client_id=client_id, owner_id=owner_id, user_role=user_role)
+        if client is None:
+            return None
+
+        update_dict = client_update.model_dump(exclude_unset=True)
+        for key, value in update_dict.items():
+            setattr(client, key, value)
+
+        self.session.add(client)
+        self.session.commit()
+        self.session.refresh(client)
+        return client
+
+    def delete_client(self, client_id: int, owner_id: int, user_role: UserRole | None = None) -> Client | None:
+        """Delete a client if the user has access."""
+        client = self.get_client(client_id=client_id, owner_id=owner_id, user_role=user_role)
+        if client is None:
+            return None
+        return super().delete(client)
 
     def count_clients_by_advisor(self, advisor_id: int) -> int:
         """

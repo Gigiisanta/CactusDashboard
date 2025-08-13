@@ -161,6 +161,29 @@ export function AUMHistoryChart({
     );
   }
 
+  // Empty state
+  if (!loading && !error && Array.isArray(data) && data.length === 0) {
+    return (
+      <Card className={`card-hover ${className}`}>
+        <CardHeader>
+          <CardTitle className='flex items-center gap-2 text-cactus-700'>
+            <TrendingUp className='h-5 w-5' />
+            Assets Under Management
+          </CardTitle>
+          <CardDescription>Historical AUM performance</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className='flex h-64 items-center justify-center text-gray-500'>
+            <div className='text-center'>
+              <p className='text-sm font-medium'>No data yet</p>
+              <p className='mt-1 text-xs'>Aún no hay snapshots de cartera cargados</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className={`card-hover ${className}`}>
       <CardHeader>

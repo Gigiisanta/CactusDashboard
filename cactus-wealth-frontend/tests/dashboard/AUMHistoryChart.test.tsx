@@ -1,4 +1,30 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import { AUMHistoryChart } from '@/components/dashboard/AUMHistoryChart';
+
+jest.mock('@/services/dashboard.service', () => ({
+  DashboardService: {
+    getAumHistory: jest.fn(),
+  },
+}));
+
+describe('AUMHistoryChart', () => {
+  const { DashboardService } = jest.requireMock('@/services/dashboard.service');
+
+  it('renders empty state when API returns []', async () => {
+    DashboardService.getAumHistory.mockResolvedValueOnce([]);
+    render(<AUMHistoryChart />);
+    await waitFor(() => expect(screen.getByText('No data yet')).toBeInTheDocument());
+  });
+
+  it('renders error state on API error', async () => {
+    DashboardService.getAumHistory.mockRejectedValueOnce(new Error('boom'));
+    render(<AUMHistoryChart />);
+    await waitFor(() => expect(screen.getByText('Failed to load AUM data')).toBeInTheDocument());
+  });
+});
+
+import { render, screen, waitFor } from '@testing-library/react';
 import { AUMHistoryChart } from '@/components/dashboard/AUMHistoryChart';
 
 jest.mock('@/services/dashboard.service', () => ({

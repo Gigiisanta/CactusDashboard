@@ -37,7 +37,9 @@ def get_engine(db_url: str | None = None) -> Engine:
 
 def create_tables() -> None:
     """Create all tables in the database."""
-    # Import models to register them with the cleared metadata
+    # Import models to register them with SQLModel metadata
+    # Importing is sufficient; we don't need to reference the symbols
+    from cactus_wealth import models as _models  # noqa: F401
 
     # Create tables
     SQLModel.metadata.create_all(get_engine())

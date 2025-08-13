@@ -19,5 +19,6 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=deps /app/node_modules ./node_modules
 EXPOSE 3000
 # Health check without curl/wget dependency
-HEALTHCHECK --interval=30s --timeout=20s --start-period=60s --retries=5 CMD node -e "require('http').get('http://localhost:3000', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+# Use /api/health route (200) to avoid redirect status codes on /
+HEALTHCHECK --interval=30s --timeout=20s --start-period=60s --retries=5 CMD node -e "require('http').get('http://localhost:3000/api/health', r => process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 CMD ["npm", "run", "start"]

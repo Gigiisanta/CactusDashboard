@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from cactus_wealth.api.v1.api import api_router
 from cactus_wealth.core.config import settings
 from cactus_wealth.core.logging_config import configure_structured_logging
+from cactus_wealth.database import create_tables
 
 # from cactus_wealth.core.middleware import (
 #     LoggingMiddleware,
@@ -42,6 +43,15 @@ app.add_middleware(
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    if settings.CREATE_TABLES_ON_STARTUP:
+        try:
+            create_tables()
+        except Exception:
+            # Best-effort: avoid crashing app on start if concurrent creates
+            pass
 
 @app.get("/")
 async def root():

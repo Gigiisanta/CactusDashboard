@@ -1,6 +1,305 @@
 name: CI
 
 on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  fe_lint_type:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cactus-wealth-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run -s lint:ci
+      - run: npm run -s type-check
+
+  fe_vitest:
+    runs-on: ubuntu-latest
+    needs: fe_lint_type
+    defaults:
+      run:
+        working-directory: cactus-wealth-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run -s test:ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fe-coverage
+          path: cactus-wealth-frontend/coverage
+
+  be_smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cactus-wealth-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Cache Poetry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-${{ runner.os }}-${{ hashFiles('cactus-wealth-backend/poetry.lock') }}
+      - name: Install Poetry
+        run: pipx install poetry
+      - run: poetry install --no-interaction
+      - run: PYTEST_SMOKE=1 poetry run pytest -q
+
+  e2e_smoke:
+    runs-on: ubuntu-latest
+    needs: [fe_lint_type]
+    defaults:
+      run:
+        working-directory: cactus-wealth-frontend
+    env:
+      E2E_SMOKE: '1'
+      BASE_URL: 'http://localhost:3000'
+      BACKEND_URL: 'http://localhost:8000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+      - name: Start backend
+        run: |
+          cd ../cactus-wealth-backend
+          poetry install --no-interaction
+          nohup poetry run uvicorn cactus_wealth.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+      - name: Run smoke
+        run: npm run -s e2e:smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-report
+          path: |
+            cactus-wealth-frontend/playwright-report
+            cactus-wealth-frontend/test-results
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - feat/**
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend-lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cactus-wealth-frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: cactus-wealth-frontend/package-lock.json
+      - name: Install deps
+        run: npm ci
+      - name: Lint
+        run: npm run -s lint:ci
+
+  frontend-typecheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cactus-wealth-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: cactus-wealth-frontend/package-lock.json
+      - run: npm ci
+      - run: npm run -s type-check
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cactus-wealth-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: cactus-wealth-frontend/package-lock.json
+      - run: npm ci
+      - run: npm run -s test:ci
+
+  backend-tests-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cactus-wealth-backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install Poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+      - name: Configure Poetry virtualenv in project
+        run: poetry config virtualenvs.in-project true
+      - name: Cache Poetry
+        uses: actions/cache@v4
+        with:
+          path: |
+            cactus-wealth-backend/.venv
+            ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('cactus-wealth-backend/poetry.lock') }}
+      - name: Install deps
+        run: poetry install --no-root
+      - name: Run backend smoke tests
+        run: PYTEST_SMOKE=1 poetry run pytest -q
+
+  e2e-smoke:
+    needs: [frontend-lint, frontend-typecheck, frontend-tests, backend-tests-smoke]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: cactus_wealth
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d cactus_wealth" 
+          --health-interval=10s --health-timeout=5s --health-retries=10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping" 
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cactus_wealth
+      REDIS_URL: redis://localhost:6379/0
+      NEXTAUTH_URL: http://localhost:3000
+      E2E_MODE: '1'
+      E2E_SECRET: cactus-ci-e2e
+      BACKEND_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install Poetry
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+      - name: Configure Poetry virtualenv in project
+        working-directory: cactus-wealth-backend
+        run: poetry config virtualenvs.in-project true
+      - name: Cache Poetry
+        uses: actions/cache@v4
+        with:
+          path: |
+            cactus-wealth-backend/.venv
+            ~/.cache/pypoetry
+          key: ${{ runner.os }}-poetry-${{ hashFiles('cactus-wealth-backend/poetry.lock') }}
+      - name: Install backend deps
+        working-directory: cactus-wealth-backend
+        run: poetry install --no-root
+      - name: Init DB schema
+        working-directory: cactus-wealth-backend
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+        run: poetry run python create_all_tables.py
+      - name: Start backend (background)
+        working-directory: cactus-wealth-backend
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          REDIS_URL: ${{ env.REDIS_URL }}
+          E2E_MODE: ${{ env.E2E_MODE }}
+          E2E_SECRET: ${{ env.E2E_SECRET }}
+        run: |
+          nohup bash -c "poetry run uvicorn cactus_wealth.main:app --host 0.0.0.0 --port 8000" > backend.log 2>&1 &
+      - name: Wait for backend health
+        run: |
+          for i in {1..40}; do
+            if curl -sf http://localhost:8000/api/v1/health >/dev/null; then
+              echo "Backend healthy"; exit 0; fi; sleep 3; done; exit 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: cactus-wealth-frontend/package-lock.json
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('cactus-wealth-frontend/package-lock.json') }}
+      - name: Install frontend deps
+        working-directory: cactus-wealth-frontend
+        run: npm ci
+      - name: Install Playwright (browsers)
+        working-directory: cactus-wealth-frontend
+        run: npx playwright install --with-deps
+      - name: Run E2E smoke (Chromium)
+        working-directory: cactus-wealth-frontend
+        env:
+          E2E_MODE: ${{ env.E2E_MODE }}
+          E2E_SECRET: ${{ env.E2E_SECRET }}
+          BACKEND_URL: ${{ env.BACKEND_URL }}
+        run: npm run -s e2e:smoke
+
+      - name: Upload artifacts (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            cactus-wealth-frontend/playwright-report
+            cactus-wealth-frontend/test-results
+            cactus-wealth-backend/backend.log
+name: CI
+
+on:
   push:
     branches: [ main, develop, feat/** ]
   pull_request:

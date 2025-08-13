@@ -57,25 +57,60 @@ async def e2e_reset(
     if not settings.E2E_SECRET or x_e2e_secret != settings.E2E_SECRET:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid E2E secret")
 
-    # Limpieza mínima y seeds deterministas
+    # Limpieza mínima y seeds deterministas (ignorar tablas ausentes)
     # Nota: usar SQL directo para performance e idempotencia
-    session.exec(text("DELETE FROM model_portfolio_positions"))
-    session.exec(text("DELETE FROM model_portfolios"))
-    session.exec(text("DELETE FROM positions"))
-    session.exec(text("DELETE FROM portfolio_snapshots"))
-    session.exec(text("DELETE FROM investment_accounts"))
-    session.exec(text("DELETE FROM insurance_policies"))
-    session.exec(text("DELETE FROM client_activities"))
-    session.exec(text("DELETE FROM client_notes"))
-    session.exec(text("DELETE FROM clients"))
-    session.exec(text("DELETE FROM notifications"))
-    session.exec(text("DELETE FROM email_tokens"))
+    # Asegurar que no haya transacciones abortadas previas
+    try:
+        session.rollback()
+    except Exception:
+        pass
+    def table_exists(table_name: str) -> bool:
+        try:
+            res = session.exec(
+                text("SELECT to_regclass(:t)"), {"t": f"public.{table_name}"}
+            ).first()
+            return bool(res and res[0])
+        except Exception:
+            # Si falla la introspección, asumir que no existe para evitar romper
+            session.rollback()
+            return False
+
+    def try_delete(table_name: str) -> None:
+        if not table_exists(table_name):
+            return
+        try:
+            session.exec(text(f"DELETE FROM {table_name}"))
+            session.commit()
+        except Exception:
+            # Limpiar estado de transacción y continuar
+            session.rollback()
+
+    # Orden de borrado por dependencias
+    for tbl in [
+        "model_portfolio_positions",
+        "model_portfolios",
+        "positions",
+        "portfolio_snapshots",
+        "investment_accounts",
+        "insurance_policies",
+        "client_activities",
+        "client_notes",
+        "clients",
+        "notifications",
+        "email_tokens",
+    ]:
+        try_delete(tbl)
 
     # Usuarios: preservar o recrear admin/advisor deterministas
-    session.exec(text("DELETE FROM users WHERE username NOT IN ('admin','advisor')"))
+    try:
+        session.exec(text("DELETE FROM users WHERE username NOT IN ('admin','advisor')"))
+        session.commit()
+    except Exception:
+        session.rollback()
 
     # Upsert admin
-    session.exec(text(
+    try:
+        session.exec(text(
         """
         INSERT INTO users (email, username, hashed_password, is_active, role, auth_provider, email_verified, created_at, updated_at)
         VALUES (:email, :username, :hashed_password, :is_active, :role, :auth_provider, :email_verified, :created_at, :updated_at)
@@ -88,7 +123,7 @@ async def e2e_reset(
           email_verified=excluded.email_verified,
           updated_at=excluded.updated_at
         """
-    ), {
+        ), {
         "email": "admin@cactuswealth.com",
         "username": "admin",
         "hashed_password": get_password_hash("admin123"),
@@ -99,9 +134,13 @@ async def e2e_reset(
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
     })
+        session.commit()
+    except Exception:
+        session.rollback()
 
     # Upsert advisor
-    session.exec(text(
+    try:
+        session.exec(text(
         """
         INSERT INTO users (email, username, hashed_password, is_active, role, auth_provider, email_verified, created_at, updated_at)
         VALUES (:email, :username, :hashed_password, :is_active, :role, :auth_provider, :email_verified, :created_at, :updated_at)
@@ -114,7 +153,7 @@ async def e2e_reset(
           email_verified=excluded.email_verified,
           updated_at=excluded.updated_at
         """
-    ), {
+        ), {
         "email": "advisor@cactuswealth.com",
         "username": "advisor",
         "hashed_password": get_password_hash("advisor123"),
@@ -125,28 +164,39 @@ async def e2e_reset(
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
     })
+        session.commit()
+    except Exception:
+        session.rollback()
 
     # Crear 2 clientes demo
     # Owner = advisor
     advisor_row = session.exec(text("SELECT id FROM users WHERE username='advisor'"))
     advisor_id = advisor_row.first()[0] if advisor_row.first() else None
     if advisor_id:
-        session.exec(text(
+        try:
+            session.exec(text(
             """
             INSERT INTO clients (first_name, last_name, email, phone, risk_profile, status, owner_id, created_at, updated_at)
             VALUES
             ('Ana', 'Demo', 'ana.demo@cactuswealth.com', '555-0001', 'MEDIUM', 'prospect', :owner_id, :now, :now)
             ON CONFLICT (email) DO NOTHING
             """
-        ), {"owner_id": advisor_id, "now": datetime.utcnow()})
-        session.exec(text(
+            ), {"owner_id": advisor_id, "now": datetime.utcnow()})
+            session.commit()
+        except Exception:
+            session.rollback()
+        try:
+            session.exec(text(
             """
             INSERT INTO clients (first_name, last_name, email, phone, risk_profile, status, owner_id, created_at, updated_at)
             VALUES
             ('Bruno', 'Demo', 'bruno.demo@cactuswealth.com', '555-0002', 'MEDIUM', 'contacted', :owner_id, :now, :now)
             ON CONFLICT (email) DO NOTHING
             """
-        ), {"owner_id": advisor_id, "now": datetime.utcnow()})
+            ), {"owner_id": advisor_id, "now": datetime.utcnow()})
+            session.commit()
+        except Exception:
+            session.rollback()
 
     session.commit()
 

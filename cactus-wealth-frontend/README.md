@@ -54,6 +54,22 @@ A modern, professional dashboard for financial advisors built with Next.js 14, T
 
 The application uses JWT token authentication. Demo credentials:
 
+## 🧭 Runbook: Proxy and Dashboard
+
+- Proxy at `app/api/v1/[...path]/route.ts` forwards Authorization/cookies with timeout and retries. Enable logs with `DEBUG_PROXY=true`.
+- Dashboard layout never blocks rendering. Without session and no `access_token` cookie, it shows a banner linking to `/auth/login` and hides Header/Sidebar, still rendering children.
+- Optional dev auto-login: `NEXT_PUBLIC_AUTO_LOGIN=1`.
+
+Quick smoke via proxy after backend seed:
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:3000/api/v1/login/access-token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'username=gio&password=gigi123' | jq -r .access_token)
+
+curl -s --cookie "access_token=$TOKEN" 'http://localhost:3000/api/v1/dashboard/aum-history?days=30' | jq
+```
+
 - Email: `demo@cactuswealth.com`
 - Password: `demo123`
 

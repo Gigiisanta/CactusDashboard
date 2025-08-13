@@ -143,12 +143,16 @@ markers = [
     "slow: marks tests as slow",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "smoke: marks a tiny, representative subset for quick validation",
 ]
 filterwarnings = [
     "error",
     "ignore::UserWarning",
     "ignore::DeprecationWarning",
 ] 
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s %(levelname)s %(name)s %(message)s"
 [tool.vulture]
 min_confidence = 80
 paths = ["src/", "tests/"]

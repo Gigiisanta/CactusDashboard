@@ -39,7 +39,12 @@ export class PortfolioService {
    * Model Portfolio Operations
    */
   static async getModelPortfolios(): Promise<any[]> {
-    return apiClient.getModelPortfolios();
+    const raw = await apiClient.getModelPortfolios();
+    // Normalize to array for robustness: support {items: []}, single object, null
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray((raw as any).items)) return (raw as any).items;
+    if (raw && typeof raw === 'object') return [raw];
+    return [];
   }
 
   static async getModelPortfolio(portfolioId: number): Promise<any> {

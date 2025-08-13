@@ -28,6 +28,39 @@ Backend API for the Cactus Wealth Dashboard - A financial advisor platform desig
 
 4. Visit http://localhost:8000/docs for the interactive API documentation.
 
+## Runbook: Dev, DB reset, seed, tests
+
+SQLite local reset + seed (safe for SQLite/Postgres):
+
+```bash
+cd cactus-wealth-backend
+poetry install --no-root
+PYTHONPATH=src poetry run python scripts/create_god_user.py  # creates/updates gio/gigi123 (GOD)
+PYTHONPATH=src poetry run python scripts/create_aum_seed.py   # adds demo client/portfolio + 2 snapshots
+```
+
+Postgres migrations (if using PG):
+
+```bash
+alembic upgrade head
+```
+
+Backend tests:
+
+```bash
+poetry run pytest -q
+```
+
+Sample cURL (via backend directly):
+
+```bash
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/login/access-token \
+  -H 'Content-Type: application/x-www-form-urlencoded' \
+  --data 'username=gio&password=gigi123' | jq -r .access_token)
+
+curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8000/api/v1/dashboard/aum-history?days=30' | jq
+```
+
 ## Smoke testing (SQLite)
 
 To run a lightweight smoke suite against SQLite (no external services), use:

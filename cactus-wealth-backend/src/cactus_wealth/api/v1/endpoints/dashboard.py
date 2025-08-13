@@ -1,4 +1,8 @@
 
+from datetime import UTC
+import logging
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, func, select
 
@@ -15,9 +19,12 @@ from cactus_wealth.models import (
     UserRole,
 )
 from cactus_wealth.repositories.client_repository import ClientRepository
+from cactus_wealth.repositories.portfolio_repository import PortfolioRepository
 from cactus_wealth.repositories.user_repository import UserRepository
 from cactus_wealth.security import get_current_user
-from cactus_wealth.services.dashboard_service import DashboardService as NewDashboardService
+from cactus_wealth.services.dashboard_service import (
+    DashboardService as NewDashboardService,
+)
 
 router = APIRouter()
 
@@ -89,36 +96,81 @@ def get_dashboard_summary(
         # --- monthly_growth_percentage ---
         from datetime import datetime
 
-        now = datetime.utcnow()
-        month_start = datetime(now.year, now.month, 1)
+        now = datetime.now(UTC)
+        month_start = datetime(now.year, now.month, 1, tzinfo=UTC)
 
         # Determine accessible portfolio IDs
         stmt_portfolios = select(Portfolio.id).join(Client, Portfolio.client_id == Client.id)
         if owner_ids is not None:
             stmt_portfolios = stmt_portfolios.where(Client.owner_id.in_(owner_ids))
-        results = session.exec(stmt_portfolios).all()
-        portfolio_ids = [int(r[0] if isinstance(r, tuple) else r) for r in results]
+        portfolio_ids = [int(r[0] if isinstance(r, tuple) else r) for r in session.exec(stmt_portfolios).all()]
 
         monthly_growth_percentage: float | None = None
         if portfolio_ids:
-            stmt_snaps = select(PortfolioSnapshot).where(
-                PortfolioSnapshot.portfolio_id.in_(portfolio_ids),
-                PortfolioSnapshot.timestamp >= month_start,
+            # Per-portfolio boundaries via subqueries (min timestamp in month, max timestamp up to now)
+            start_sub = (
+                select(
+                    PortfolioSnapshot.portfolio_id.label("pid"),
+                    func.min(PortfolioSnapshot.timestamp).label("start_ts"),
+                )
+                .where(
+                    PortfolioSnapshot.portfolio_id.in_(portfolio_ids),
+                    PortfolioSnapshot.timestamp >= month_start,
+                )
+                .group_by(PortfolioSnapshot.portfolio_id)
+                .subquery()
             )
-            snapshots = session.exec(stmt_snaps).all()
-            if snapshots:
-                # Group by portfolio and compute earliest and latest snapshot in month
-                snaps_by_portfolio: dict[int, list[PortfolioSnapshot]] = {}
-                for snap in snapshots:
-                    snaps_by_portfolio.setdefault(snap.portfolio_id, []).append(snap)
-                start_total = 0.0
-                end_total = 0.0
-                for snap_list in snaps_by_portfolio.values():
-                    snap_list.sort(key=lambda s: s.timestamp)
-                    start_total += float(snap_list[0].value)
-                    end_total += float(snap_list[-1].value)
-                if start_total > 0:
-                    monthly_growth_percentage = (end_total / start_total) - 1.0
+
+            end_sub = (
+                select(
+                    PortfolioSnapshot.portfolio_id.label("pid"),
+                    func.max(PortfolioSnapshot.timestamp).label("end_ts"),
+                )
+                .where(
+                    PortfolioSnapshot.portfolio_id.in_(portfolio_ids),
+                    PortfolioSnapshot.timestamp <= now,
+                )
+                .group_by(PortfolioSnapshot.portfolio_id)
+                .subquery()
+            )
+
+            start_vals = (
+                select(
+                    PortfolioSnapshot.portfolio_id.label("pid"),
+                    PortfolioSnapshot.value.label("start_value"),
+                )
+                .join(
+                    start_sub,
+                    (PortfolioSnapshot.portfolio_id == start_sub.c.pid)
+                    & (PortfolioSnapshot.timestamp == start_sub.c.start_ts),
+                )
+            ).subquery()
+
+            end_vals = (
+                select(
+                    PortfolioSnapshot.portfolio_id.label("pid"),
+                    PortfolioSnapshot.value.label("end_value"),
+                )
+                .join(
+                    end_sub,
+                    (PortfolioSnapshot.portfolio_id == end_sub.c.pid)
+                    & (PortfolioSnapshot.timestamp == end_sub.c.end_ts),
+                )
+            ).subquery()
+
+            totals_stmt = (
+                select(
+                    func.sum(start_vals.c.start_value).label("start_total"),
+                    func.sum(end_vals.c.end_value).label("end_total"),
+                )
+                .select_from(start_vals)
+                .join(end_vals, end_vals.c.pid == start_vals.c.pid)
+            )
+            res = session.exec(totals_stmt).first()
+            start_total = float(res[0] or 0.0)
+            end_total = float(res[1] or 0.0)
+            if start_total > 0.0:
+                monthly_growth_percentage = (end_total / start_total) - 1.0
 
         # --- reports_generated_this_quarter ---
         from datetime import timedelta
@@ -159,13 +211,30 @@ def get_dashboard_summary(
 def get_aum_history(
     days: int = Query(30, ge=1, le=365, description="Number of days of history"),
     current_user: User = Depends(get_current_user),
-    dashboard_service: services.DashboardService = Depends(get_dashboard_service),
+    session: Session = Depends(get_session),
 ) -> list[schemas.AUMHistoryPoint]:
     """
     Get AUM history data for charts.
     """
     try:
-        return dashboard_service.get_aum_history(current_user, days)
+        # Avoid module/package name collision by using repository directly
+        start_time = time.perf_counter()
+        admin_like_roles = {UserRole.ADMIN, getattr(UserRole, "GOD", UserRole.ADMIN)}
+        advisor_id = None if current_user.role in admin_like_roles else current_user.id
+        repo = PortfolioRepository(session)
+        raw = repo.get_aum_history(days=days, advisor_id=advisor_id)
+        duration_ms = int((time.perf_counter() - start_time) * 1000)
+        logging.getLogger("uvicorn.access").info(
+            "aum_history_query",
+            extra={
+                "duration_ms": duration_ms,
+                "rows": len(raw),
+                "days": days,
+                "role": str(current_user.role),
+                "user_id": current_user.id,
+            },
+        )
+        return [schemas.AUMHistoryPoint(date=item["date"], value=item["value"]) for item in raw]
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to get AUM history: {str(e)}"

@@ -3,7 +3,9 @@ Fixtures globales para testing del backend Cactus Wealth.
 Configuración de base de datos de test, mocks y fixtures reutilizables.
 """
 
+import asyncio
 import inspect
+import inspect as _inspect
 import os
 import re
 import sys
@@ -13,8 +15,6 @@ import pytest
 import pytest_asyncio
 import sqlalchemy
 from fastapi import FastAPI
-import asyncio
-import inspect as _inspect
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from sqlalchemy_utils import create_database, database_exists, drop_database

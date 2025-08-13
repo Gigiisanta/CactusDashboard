@@ -7,7 +7,6 @@ from sqlalchemy import and_, or_
 from sqlmodel import Session, select
 
 from ..models import InvestmentAccount
-
 from .base_repository import BaseRepository
 
 

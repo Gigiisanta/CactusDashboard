@@ -64,6 +64,12 @@ export async function GET(
       }
       await backoff(attempt++);
     }
+    // If we got a 401 once although we have cookie/authorization, retry once fresh (guards transient race around cookie write)
+    if (response && response.status === 401 && attempt === 0) {
+      const { signal, timeoutId } = withTimeout(request.signal);
+      response = await fetch(url, { method: 'GET', headers: proxyHeaders, signal, cache: 'no-store' });
+      clearTimeout(timeoutId);
+    }
     if (!response) throw new Error('No response from backend');
     const resHeaders = new Headers(response.headers);
     return new NextResponse(response.body, { status: response.status, headers: resHeaders });

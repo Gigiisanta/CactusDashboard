@@ -45,7 +45,7 @@ export function useTraditionalAuth(): UseTraditionalAuthReturn {
       params.set('password', credentials.password);
       params.set('grant_type', 'password');
 
-      const response = await fetch('/api/v1/auth/login/access-token', {
+      const response = await fetch('/api/v1/login/access-token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -68,8 +68,12 @@ export function useTraditionalAuth(): UseTraditionalAuthReturn {
       });
 
       // Optionally keep a non-sensitive hint in localStorage for client UX
-      localStorage.setItem('has_session', '1');
+      try { localStorage.setItem('has_session', '1'); } catch (_) {}
 
+      // Notify layout to recheck session, then redirect to dashboard
+      try { window.dispatchEvent(new CustomEvent('auth:login')); } catch (_) {}
+      // Small delay to ensure the browser commits the cookie before redirecting
+      await new Promise((r) => setTimeout(r, 30));
       // Redirect to dashboard (replace to avoid back button returning to login)
       router.replace('/dashboard');
       return true;

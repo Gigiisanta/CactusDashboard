@@ -3,12 +3,12 @@ Portfolio repository for managing investment portfolios.
 """
 
 
-from sqlalchemy import and_, or_
-from datetime import datetime
+from datetime import datetime, timedelta
+
+from sqlalchemy import and_, func, or_
 from sqlmodel import Session, select
 
-from ..models import Portfolio, PortfolioSnapshot
-
+from ..models import Client, Portfolio, PortfolioSnapshot
 from .base_repository import BaseRepository
 
 
@@ -92,3 +92,61 @@ class PortfolioRepository(BaseRepository[Portfolio]):
         # In real implementation, this would join with Client; unit test only checks exec call and return
         res = self.session.exec(select(Portfolio))
         return res.all()
+
+    # --- AUM History Aggregation ---
+    def get_aum_history(self, days: int, advisor_id: int | None = None) -> list[dict]:
+        """Return aggregated AUM by day for the last N days.
+
+        Groups by UTC date of `PortfolioSnapshot.timestamp` and sums `value`.
+        If `advisor_id` is provided, restrict to portfolios whose client `owner_id`
+        matches the advisor. Returns a list of dicts with keys `date` (YYYY-MM-DD)
+        and `value` (float), ordered by date ascending.
+        """
+        if days < 1 or days > 365:
+            raise ValueError("days must be between 1 and 365")
+
+        # Use naive UTC to match DB default timestamps (datetime.utcnow)
+        now = datetime.utcnow()
+        since = now - timedelta(days=days - 1)
+
+        # Use DATE() cast for cross-database compatibility (SQLite/Postgres)
+        day_expr = func.date(PortfolioSnapshot.timestamp).label("day")
+
+        stmt = (
+            select(
+                day_expr,
+                func.sum(PortfolioSnapshot.value).label("total"),
+            )
+            .select_from(PortfolioSnapshot)
+            .join(Portfolio, Portfolio.id == PortfolioSnapshot.portfolio_id)
+        )
+
+        if advisor_id is not None:
+            # Restrict to portfolios owned by the advisor via Client.owner_id
+            stmt = stmt.join(Client, Client.id == Portfolio.client_id).where(
+                Client.owner_id == advisor_id
+            )
+
+        stmt = (
+            stmt.where(PortfolioSnapshot.timestamp >= since)
+            .group_by(day_expr)
+            .order_by(day_expr.asc())
+        )
+
+        rows = self.session.exec(stmt).all()
+
+        data: list[dict] = []
+        for row in rows:
+            # row may be a tuple (day, total) across DB backends
+            day_value = row[0] if isinstance(row, tuple) else getattr(row, "day", row)
+            total_value = row[1] if isinstance(row, tuple) else getattr(row, "total", None)
+
+            # Normalize day to YYYY-MM-DD string
+            if hasattr(day_value, "isoformat"):
+                day_str = day_value.isoformat()[:10]
+            else:
+                day_str = str(day_value)
+
+            data.append({"date": day_str, "value": float(total_value or 0.0)})
+
+        return data
