@@ -10,12 +10,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from sqlmodel import Session
 from sqlalchemy import text
+from sqlmodel import Session
 
 from cactus_wealth.core.crypto import get_password_hash
 from cactus_wealth.database import get_engine
-from cactus_wealth.models import User, UserRole, Client, Portfolio, PortfolioSnapshot
+from cactus_wealth.models import Client, Portfolio, PortfolioSnapshot, User, UserRole
 
 
 def table_exists(session: Session, table: str) -> bool:

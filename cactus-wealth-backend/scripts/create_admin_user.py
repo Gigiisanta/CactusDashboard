@@ -11,9 +11,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from sqlmodel import Session, select  # type: ignore
-from cactus_wealth.models import User, UserRole  # type: ignore
+
 from cactus_wealth.core.crypto import get_password_hash  # type: ignore
 from cactus_wealth.database import get_engine  # type: ignore
+from cactus_wealth.models import User, UserRole  # type: ignore
 
 
 def upsert_admin_user() -> None:

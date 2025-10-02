@@ -340,9 +340,10 @@ def test_aum_history_with_samples_and_role_filter(
     test_clients_and_portfolios: dict,
 ):
     """Aggregates snapshots by day; admin sees all, advisor sees own only."""
-    from datetime import datetime, timedelta, UTC
+    from datetime import UTC, datetime, timedelta
     from decimal import Decimal
-    from cactus_wealth.models import PortfolioSnapshot, Client
+
+    from cactus_wealth.models import PortfolioSnapshot
 
     now = datetime.now(UTC)
     day0 = now - timedelta(days=1)

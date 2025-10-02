@@ -12,14 +12,12 @@ from cactus_wealth.repositories import ClientRepository
 from cactus_wealth.repositories.note_repository import NoteRepository
 from cactus_wealth.schemas import (
     ClientCreate,
-    ClientRead,
-    ClientReadWithDetails,
-    ClientUpdate,
     ClientNoteCreate,
     ClientNoteRead,
     ClientNoteUpdate,
-    ClientActivityCreate,
-    ClientActivityRead,
+    ClientRead,
+    ClientReadWithDetails,
+    ClientUpdate,
 )
 from cactus_wealth.security import get_current_user
 

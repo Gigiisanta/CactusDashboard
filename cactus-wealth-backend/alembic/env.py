@@ -2,8 +2,9 @@ import os
 import sys
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # Signal early that Alembic is running to prevent heavy package side-effects
 os.environ["ALEMBIC_RUNNING"] = "1"
@@ -20,9 +21,6 @@ os.environ["ALEMBIC_RUNNING"] = "1"
 from sqlmodel import SQLModel
 
 # Importar explícitamente todos los modelos para registrar metadata
-from cactus_wealth.models import (
-    User, Client, ClientActivity, ClientNote, Asset, Portfolio, Position, PortfolioSnapshot, Report, InvestmentAccount, InsurancePolicy, Notification, ModelPortfolio, ModelPortfolioPosition, ManagerChangeRequest
-)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

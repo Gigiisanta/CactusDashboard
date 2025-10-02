@@ -3,25 +3,26 @@
 Script de test para verificar la configuración SMTP de SendGrid
 """
 
-import smtplib
 import os
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import smtplib
 from datetime import datetime
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 
 def test_smtp_configuration():
     """Test de configuración SMTP con SendGrid"""
-    
+
     # Configuración SMTP
     smtp_host = os.getenv("EMAIL_SERVER_HOST", "smtp.sendgrid.net")
     smtp_port = int(os.getenv("EMAIL_SERVER_PORT", "587"))
     smtp_user = os.getenv("EMAIL_SERVER_USER", "apikey")
     smtp_password = os.getenv("EMAIL_SERVER_PASS", "")
     email_from = os.getenv("EMAIL_FROM", "Cactus Wealth <gsantarelli@grupoabax.com>")
-    
+
     # Email de prueba
     test_email = "gsantarelli@grupoabax.com"
-    
+
     print("🧪 Test de Configuración SMTP - SendGrid")
     print("=" * 50)
     print(f"Host: {smtp_host}")
@@ -31,7 +32,7 @@ def test_smtp_configuration():
     print(f"From: {email_from}")
     print(f"To: {test_email}")
     print()
-    
+
     if not all([smtp_host, smtp_user, smtp_password, email_from]):
         print("❌ Error: Configuración SMTP incompleta")
         print("Verifica las siguientes variables de entorno:")
@@ -40,14 +41,14 @@ def test_smtp_configuration():
         print("- EMAIL_SERVER_PASS")
         print("- EMAIL_FROM")
         return False
-    
+
     try:
         # Crear mensaje de prueba
         msg = MIMEMultipart()
         msg['From'] = email_from
         msg['To'] = test_email
         msg['Subject'] = f"🧪 Test SMTP - Cactus Wealth ({datetime.now().strftime('%Y-%m-%d %H:%M:%S')})"
-        
+
         # Cuerpo del mensaje
         html_body = f"""
         <!DOCTYPE html>
@@ -95,7 +96,7 @@ def test_smtp_configuration():
         </body>
         </html>
         """
-        
+
         text_body = f"""
         🌵 Cactus Wealth - Test SMTP
 
@@ -113,10 +114,10 @@ def test_smtp_configuration():
 
         © 2024 Cactus Wealth
         """
-        
+
         msg.attach(MIMEText(text_body, 'plain', 'utf-8'))
         msg.attach(MIMEText(html_body, 'html', 'utf-8'))
-        
+
         # Conectar y enviar
         print("🔌 Conectando a SendGrid SMTP...")
         with smtplib.SMTP(smtp_host, smtp_port) as server:
@@ -125,12 +126,12 @@ def test_smtp_configuration():
             server.login(smtp_user, smtp_password)
             print("📧 Enviando email de prueba...")
             server.send_message(msg)
-        
+
         print("✅ ¡Test SMTP exitoso!")
         print(f"📬 Email de prueba enviado a: {test_email}")
         print("🎉 La configuración SMTP está lista para producción")
         return True
-        
+
     except Exception as e:
         print(f"❌ Error en test SMTP: {str(e)}")
         print("\n🔧 Posibles soluciones:")
@@ -142,4 +143,4 @@ def test_smtp_configuration():
 
 if __name__ == "__main__":
     success = test_smtp_configuration()
-    exit(0 if success else 1) 
+    exit(0 if success else 1)

@@ -2,15 +2,20 @@
 Main FastAPI application entry point.
 """
 
-import time
-import sys
 import os
+import sys
+import time
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 from contextlib import asynccontextmanager
-from typing import Any
 
 import redis.asyncio as redis
 import structlog
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
+
 from cactus_wealth.core.config import settings
 from cactus_wealth.core.middleware import (
     add_security_headers,
@@ -18,11 +23,6 @@ from cactus_wealth.core.middleware import (
     performance_middleware,
 )
 from cactus_wealth.database import create_tables
-from fastapi import FastAPI, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
-import logging
 
 # Configure structured logging
 logger = structlog.get_logger()

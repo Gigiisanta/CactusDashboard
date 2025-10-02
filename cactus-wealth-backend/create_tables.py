@@ -3,19 +3,20 @@
 Script para crear todas las tablas de la base de datos.
 """
 
-import sys
 import os
+import sys
 
 # Agregar el directorio src al path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from cactus_wealth.database import create_tables
 from cactus_wealth.core.config import settings
+from cactus_wealth.database import create_tables
+
 
 def main():
     print("Creando tablas de la base de datos...")
     print(f"URL de la base de datos: {settings.DATABASE_URL}")
-    
+
     try:
         create_tables()
         print("✅ Tablas creadas exitosamente!")
@@ -24,4 +25,4 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
-    main() 
+    main()

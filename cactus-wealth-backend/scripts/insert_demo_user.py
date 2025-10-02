@@ -1,8 +1,10 @@
 from datetime import datetime
-from sqlmodel import SQLModel, Session, create_engine, select
+
+from sqlalchemy import text
+from sqlmodel import Session, create_engine
+
 from cactus_wealth.models import User, UserRole
 from cactus_wealth.security import get_password_hash
-from sqlalchemy import text
 
 engine = create_engine("sqlite:///cactus-wealth-backend/cactus 2.db")
 
@@ -23,4 +25,4 @@ if __name__ == "__main__":
         )
         session.add(user)
         session.commit()
-        print("Usuario demo insertado correctamente.") 
+        print("Usuario demo insertado correctamente.")

@@ -1,7 +1,7 @@
 
-from datetime import UTC
 import logging
 import time
+from datetime import UTC
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, func, select

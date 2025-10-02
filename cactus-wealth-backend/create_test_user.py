@@ -3,27 +3,29 @@
 Script para crear un usuario de prueba.
 """
 
-import sys
 import os
+import sys
 from datetime import datetime
 
 # Agregar el directorio src al path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
-from sqlmodel import Session, create_engine
 from sqlalchemy import text
+from sqlmodel import Session, create_engine
+
 from cactus_wealth.core.config import settings
 from cactus_wealth.security import get_password_hash
 
+
 def main():
     print("👤 Creando usuario de prueba...")
-    
+
     # Crear engine
     engine = create_engine(
         settings.DATABASE_URL,
         connect_args={"check_same_thread": False}
     )
-    
+
     # Crear usuario de prueba
     with Session(engine) as session:
         # Verificar si el usuario ya existe
@@ -31,14 +33,14 @@ def main():
             text("SELECT id FROM users WHERE email = :email"),
             {"email": "demo@cactuswealth.com"}
         ).first()
-        
+
         if result:
             print("⚠️  Usuario demo@cactuswealth.com ya existe")
             return
-        
+
         # Crear hash de la contraseña
         hashed_password = get_password_hash("demo123")
-        
+
         # Insertar usuario
         session.execute(
             text("""
@@ -62,11 +64,11 @@ def main():
                 "updated_at": datetime.utcnow()
             }
         )
-        
+
         session.commit()
         print("✅ Usuario de prueba creado exitosamente!")
         print("📧 Email: demo@cactuswealth.com")
         print("🔑 Password: demo123")
 
 if __name__ == "__main__":
-    main() 
+    main()
