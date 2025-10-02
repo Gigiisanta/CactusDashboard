@@ -75,8 +75,8 @@ export default function AuthLoginPage() {
       return;
     }
 
-    if (credentials.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+    if (credentials.password.length < 4) {
+      setError('La contraseña debe tener al menos 4 caracteres');
       return;
     }
 

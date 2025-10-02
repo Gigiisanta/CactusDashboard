@@ -10,8 +10,10 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/cactus_wealth
+      - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=redis://redis:6379
       - SECRET_KEY=${SECRET_KEY:-cactus-secret-key-2024}
       - ALGORITHM=HS256
@@ -30,7 +32,6 @@ services:
       - E2E_SECRET=${E2E_SECRET:-}
       - CREATE_TABLES_ON_STARTUP=${CREATE_TABLES_ON_STARTUP:-1}
     depends_on:
-      - db
       - redis
     volumes:
       - ./cactus-wealth-backend:/app
@@ -68,6 +69,8 @@ services:
       - EMAIL_SERVER_USER=${EMAIL_SERVER_USER:-apikey}
       - EMAIL_SERVER_PASS=${EMAIL_SERVER_PASS}
       - EMAIL_FROM=${EMAIL_FROM:-"Cactus Wealth <noreply@cactuswealth.com>"}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     depends_on:
       - backend
     volumes:
@@ -84,27 +87,7 @@ services:
       retries: 3
       start_period: 40s
 
-  # ===== DATABASE =====
-  db:
-    image: postgres:15-alpine
-    container_name: cactus-db
-    restart: unless-stopped
-    environment:
-      - POSTGRES_DB=cactus_wealth
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - cactus-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d cactus_wealth"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+  
 
   # ===== REDIS CACHE =====
   redis:
@@ -214,8 +197,6 @@ services:
       - monitoring
 
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
   backend_logs:
